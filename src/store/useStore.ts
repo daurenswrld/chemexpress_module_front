@@ -9,7 +9,7 @@ import type {
   StockMovement, 
   ClientEntity 
 } from '../types';
-import { MOCK_CLIENTS, INITIAL_FALLBACK_PRODUCTS } from '../data/mockData';
+import { INITIAL_FALLBACK_PRODUCTS } from '../data/mockData';
 
 export interface CartItem {
   product: InventoryItem;
@@ -29,6 +29,7 @@ interface AppState {
   setCurrentView: (view: 'catalog' | 'admin') => void;
 
   // Live API Products
+  catalogTab: 'reagents' | 'dishware' | 'other';
   products: InventoryItem[];
   totalProducts: number;
   currentPage: number;
@@ -39,6 +40,7 @@ interface AppState {
   selectedWarehouse: string;
   onlyInStock: boolean;
 
+  setCatalogTab: (tab: 'reagents' | 'dishware' | 'other', updateUrl?: boolean) => void;
   setSearchQuery: (query: string) => void;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
@@ -102,7 +104,7 @@ export const enrichProduct = (raw: ChemProduct, existing?: InventoryItem): Inven
   }
 
   // Generate realistic stock across warehouses based on product ID
-  const isSpecial = raw.storage?.includes('2~8') || raw.storage?.includes('−20') || raw.title_ru?.includes('ИФА');
+  const isSpecial = raw.storage?.includes('2~8') || raw.storage?.includes('−20') || raw.storage?.includes('-20') || raw.title_ru?.includes('ИФА');
   const isPrecursor = raw.title_ru?.toLowerCase().includes('кислота соляная') || raw.title_ru?.toLowerCase().includes('метанол');
 
   const seed = (raw.id * 13) % 100;
@@ -121,10 +123,26 @@ export const enrichProduct = (raw: ChemProduct, existing?: InventoryItem): Inven
   };
 };
 
+export const getInitialCatalogTab = (): 'reagents' | 'dishware' | 'other' => {
+  if (typeof window === 'undefined') return 'reagents';
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get('tab')?.toLowerCase();
+  const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+
+  if (tabParam === 'dishware' || path === 'dishware' || path.startsWith('store/dishware')) {
+    return 'dishware';
+  }
+  if (tabParam === 'other' || path === 'other' || path.startsWith('store/other')) {
+    return 'other';
+  }
+  return 'reagents';
+};
+
 export const useStore = create<AppState>((set, get) => ({
   currentView: 'catalog',
   setCurrentView: (view) => set({ currentView: view }),
 
+  catalogTab: getInitialCatalogTab(),
   products: INITIAL_FALLBACK_PRODUCTS.map(p => enrichProduct(p)),
   totalProducts: 795158,
   currentPage: 1,
@@ -136,6 +154,20 @@ export const useStore = create<AppState>((set, get) => ({
   onlyInStock: false,
 
   inventoryStore: {},
+
+  setCatalogTab: (tab, updateUrl = true) => {
+    set({ catalogTab: tab, currentPage: 1, selectedBrand: 'all' });
+    if (updateUrl && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (tab === 'reagents') {
+        url.searchParams.delete('tab');
+      } else {
+        url.searchParams.set('tab', tab);
+      }
+      window.history.pushState({ tab }, '', url.pathname + url.search);
+    }
+    get().fetchLiveProducts();
+  },
 
   setSearchQuery: (query) => {
     set({ searchQuery: query, currentPage: 1 });
@@ -154,6 +186,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setSelectedBrand: (brand) => {
     set({ selectedBrand: brand, currentPage: 1 });
+    get().fetchLiveProducts();
   },
 
   setSelectedWarehouse: (wh) => {
@@ -165,11 +198,30 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchLiveProducts: async () => {
-    const { searchQuery, currentPage, pageSize, inventoryStore } = get();
+    const { catalogTab, searchQuery, selectedBrand, currentPage, pageSize, inventoryStore } = get();
     set({ isLoading: true });
 
     try {
-      const url = `/api/products/search?search=${encodeURIComponent(searchQuery)}&page=${currentPage}&page_size=${pageSize}`;
+      let url = '';
+      let isOtherApi = false;
+
+      if (catalogTab === 'reagents') {
+        let queryStr = searchQuery.trim();
+        if (selectedBrand !== 'all') {
+          queryStr = queryStr ? `${queryStr} ${selectedBrand}` : selectedBrand;
+        }
+        url = `/api/products/search?search=${encodeURIComponent(queryStr)}&page=${currentPage}&page_size=${pageSize}`;
+      } else if (catalogTab === 'dishware') {
+        isOtherApi = true;
+        let queryStr = searchQuery.trim();
+        url = `/api/other_products/search?category_id=12&q=${encodeURIComponent(queryStr)}&page=${currentPage}&page_size=${pageSize}`;
+      } else {
+        // other: biology, antibodies, elisa kits
+        isOtherApi = true;
+        let queryStr = searchQuery.trim();
+        url = `/api/other_products/search?q=${encodeURIComponent(queryStr)}&page=${currentPage}&page_size=${pageSize}`;
+      }
+
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
       });
@@ -177,13 +229,42 @@ export const useStore = create<AppState>((set, get) => ({
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 
       const data = await res.json();
-      const rawItems: ChemProduct[] = data.items || [];
-      const total = data.total || 795158;
+      const rawItems: any[] = data.items || [];
+      const total = typeof data.total === 'number' ? data.total : (catalogTab === 'reagents' ? 795158 : 27422);
 
-      const enriched = rawItems.map(item => {
-        const cached = inventoryStore[item.id];
-        const product = enrichProduct(item, cached);
-        inventoryStore[item.id] = product;
+      const enriched = rawItems.map((item: any) => {
+        let rawChem: ChemProduct;
+        if (isOtherApi) {
+          rawChem = {
+            id: item.id,
+            title_ru: item.title || item.cat_no || (catalogTab === 'dishware' ? 'Лабораторная посуда' : 'Биологический реактив'),
+            title_en: item.title || item.cat_no || 'Lab Product',
+            product_code: item.cat_no || `ITM-${item.id}`,
+            cas_number: item.cat_no ? `Кат. №: ${item.cat_no}` : 'N/A',
+            purity: item.spec_text || (typeof item.category === 'object' && item.category?.name) || 'Lab Grade',
+            storage: (typeof item.category === 'object' && (item.category?.name?.includes('ELISA') || item.category?.name?.includes('Antibody')))
+              ? '-20°C / 2~8°C'
+              : 'RT (15-25°C)',
+            molecular_formula: (typeof item.category === 'object' && item.category?.name) || (catalogTab === 'dishware' ? 'Borosilicate 3.3' : 'Kit / Protein'),
+            molecular_weight: 0,
+            density: '-',
+            quantity: item.quantity ? `${item.quantity} шт` : '1 шт',
+            brand: typeof item.brand === 'object' && item.brand ? (item.brand.name || 'ChemExpress') : (typeof item.brand === 'string' ? item.brand : 'ChemExpress'),
+            in_stock: Boolean(item.in_stock),
+            stock_qty: item.stock_qty || null,
+            price: item.price || null,
+            main_image_url: item.main_image_url,
+            category_name: typeof item.category === 'object' && item.category ? item.category.name : undefined,
+            spec_text: item.spec_text,
+            cat_no: item.cat_no,
+          };
+        } else {
+          rawChem = item;
+        }
+
+        const cached = inventoryStore[rawChem.id];
+        const product = enrichProduct(rawChem, cached);
+        inventoryStore[rawChem.id] = product;
         return product;
       });
 
@@ -194,7 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
         inventoryStore: { ...inventoryStore },
       });
     } catch {
-      // If offline or fetch failed, fallback gracefully to initial items
+      // If fetch failed, fallback gracefully to initial items
       set({ isLoading: false });
     }
   },
@@ -212,12 +293,6 @@ export const useStore = create<AppState>((set, get) => ({
     } else {
       set({ cart: [...currentCart, { product, quantity, warehouseId: targetWh }] });
     }
-
-    get().addToast({
-      type: 'success',
-      title: 'Добавлено в заявку',
-      message: `${product.title_ru} (${quantity} ${product.quantity || 'шт'}) добавлен в спецификацию.`,
-    });
   },
 
   updateCartQuantity: (productId, quantity) => {
@@ -246,35 +321,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isOrderDrawerOpen: false });
   },
 
-  orders: [
-    {
-      id: 'ord-101',
-      orderNumber: 'CX-2026-0042',
-      type: 'invoice',
-      status: 'invoice_issued',
-      createdAt: new Date().toISOString(),
-      validUntil: new Date(Date.now() + 7 * 86400000).toISOString(),
-      client: MOCK_CLIENTS[0],
-      items: [
-        {
-          productId: 1,
-          sku: 'TCI-E0297-25G',
-          name: '1-Этинил-1-циклогексанол',
-          casNumber: '78-27-3',
-          brand: 'TCI',
-          packaging: '25g',
-          quantity: 2,
-          priceKzt: 19800,
-          vatRate: 0.12,
-          warehouseId: 'wh-almaty-central',
-        },
-      ],
-      subtotalKzt: 39600,
-      vatKzt: 4752,
-      totalKzt: 44352,
-      managerComment: 'Счет выписан, товар зарезервирован на 7 дней в 1С',
-    },
-  ],
+  orders: [],
 
   createOrder: ({ type, client, items, clientMessage, validDays = 7 }) => {
     const subtotal = items.reduce((sum, item) => sum + item.priceKzt * item.quantity, 0);
@@ -413,20 +460,7 @@ export const useStore = create<AppState>((set, get) => ({
   previewOrder: null,
   setPreviewOrder: (order) => set({ previewOrder: order }),
 
-  movements: [
-    {
-      id: 'mov-1',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      type: 'receipt',
-      productId: 1,
-      productName: '1-Этинил-1-циклогексанол',
-      warehouseId: 'wh-almaty-central',
-      quantity: 50,
-      documentRef: 'ПХ-2026-0901',
-      comment: 'Поступление от TCI (Токио, Япония)',
-      performedBy: 'Складской оператор',
-    },
-  ],
+  movements: [],
 
   toasts: [],
   addToast: (toast) => {
@@ -448,3 +482,13 @@ export const useStore = create<AppState>((set, get) => ({
     return product.stock.reduce((sum, s) => sum + Math.max(0, s.physical - s.reserved), 0);
   },
 }));
+
+// Synchronize back/forward browser navigation
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    const tab = getInitialCatalogTab();
+    if (useStore.getState().catalogTab !== tab) {
+      useStore.getState().setCatalogTab(tab, false);
+    }
+  });
+}

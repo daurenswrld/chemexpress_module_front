@@ -3,13 +3,142 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-[#f8fafc] text-slate-900 font-sans antialiased selection:bg-[#103178] selection:text-white;
   }
 }
 
-/* Custom crisp scrollbars for dense B2B tables */
+@layer components {
+  /* Table layout classes */
+  .catalog-table {
+    @apply w-full text-left text-xs border-collapse;
+  }
+  .catalog-th {
+    @apply py-3 px-4 text-slate-500 uppercase tracking-wider text-[11px] font-bold border-b border-slate-200 bg-slate-50;
+  }
+  .catalog-tr {
+    @apply hover:bg-slate-50/90 transition-colors cursor-pointer;
+  }
+  .catalog-td {
+    @apply py-3.5 px-4 align-middle;
+  }
+
+  /* Badge styling */
+  .badge-brand {
+    @apply inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200 truncate max-w-[110px];
+  }
+  .badge-formula {
+    @apply font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shrink-0 text-[10px];
+  }
+  .badge-purity {
+    @apply font-mono bg-navy-50 text-navy-900 px-1.5 py-0.5 rounded border border-navy-200/50 font-semibold shrink-0 truncate max-w-[130px] text-[10px];
+  }
+  .badge-cas {
+    @apply inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer;
+  }
+  .badge-storage {
+    @apply text-slate-400 flex items-center gap-0.5 shrink-0 text-[10px];
+  }
+
+  /* Buttons & Action controls */
+  .btn-cart-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#103178] hover:bg-[#184294] text-white font-bold text-xs shadow-sm transition-all cursor-pointer whitespace-nowrap active:scale-[0.98];
+  }
+  .stepper-container {
+    @apply inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shrink-0;
+  }
+  .stepper-btn {
+    @apply px-2 py-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer;
+  }
+  .stepper-value {
+    @apply w-7 text-center font-mono font-bold text-xs text-slate-800 select-none;
+  }
+
+  /* Filter / Tab Buttons */
+  .tab-pill-active {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-navy-900 text-white shadow-sm;
+  }
+  .tab-pill-inactive {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900;
+  }
+  .quick-chip {
+    @apply px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer;
+  }
+
+  /* Form controls & labels */
+  .input-b2b {
+    @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none transition-all placeholder:text-slate-400;
+  }
+  .input-b2b:focus {
+    border-color: #103178;
+    box-shadow: 0 0 0 1px #103178;
+  }
+  .label-b2b {
+    @apply block text-slate-700 font-bold mb-1 text-xs;
+  }
+  .select-b2b {
+    @apply bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none cursor-pointer;
+  }
+  .select-b2b:focus {
+    border-color: #103178;
+  }
+
+  /* Primary & secondary action buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all cursor-pointer whitespace-nowrap active:scale-[0.98];
+    background-color: #103178;
+  }
+  .btn-primary:hover {
+    background-color: #1a3e7b;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer whitespace-nowrap active:scale-[0.98];
+  }
+
+  /* Drawer & panel layouts */
+  .drawer-header {
+    @apply p-5 border-b border-slate-200 flex items-start justify-between bg-slate-50/90;
+  }
+  .drawer-footer {
+    @apply p-4 border-t border-slate-200 bg-slate-50/90 flex items-center justify-between gap-3;
+  }
+
+  /* Enterprise B2B Status Badges */
+  .badge-status-issued {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200;
+  }
+  .badge-status-paid {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200;
+  }
+  .badge-status-shipped {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200;
+  }
+  .badge-status-cancelled {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200;
+  }
+}
+
+/* ChemExpress Institutional Navy Utility Classes (Fallback for running dev servers) */
+.bg-navy-900 { background-color: #103178 !important; }
+.bg-navy-800 { background-color: #1a3e7b !important; }
+.bg-navy-600 { background-color: #2a61b8 !important; }
+.bg-navy-50 { background-color: #f0f4fc !important; }
+.hover\:bg-navy-800:hover { background-color: #1a3e7b !important; }
+.hover\:bg-navy-700:hover { background-color: #1f4c97 !important; }
+.text-navy-900 { color: #103178 !important; }
+.text-navy-800 { color: #1a3e7b !important; }
+.border-navy-900 { border-color: #103178 !important; }
+.border-navy-200\/60 { border-color: rgba(197, 215, 242, 0.6) !important; }
+.border-navy-200\/50 { border-color: rgba(197, 215, 242, 0.5) !important; }
+.border-navy-100 { border-color: #e2ebf8 !important; }
+
+/* Custom crisp scrollbars for enterprise tables */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -39,6 +168,6 @@
   }
   @page {
     size: A4;
-    margin: 12mm 15mm;
+    margin: 10mm 12mm;
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { WAREHOUSES } from '../data/mockData';
 import type { OrderStatus, WarehouseId } from '../types';
@@ -36,7 +36,24 @@ export const Admin1CWorkstation: React.FC = () => {
   const [receiptProductId, setReceiptProductId] = useState<number>(products[0]?.id || 1);
   const [receiptWarehouseId, setReceiptWarehouseId] = useState<WarehouseId>('wh-almaty-central');
   const [receiptQty, setReceiptQty] = useState(50);
-  const [receiptDocRef, setReceiptDocRef] = useState('ПХ-2026-0922');
+  const [receiptDocRef, setReceiptDocRef] = useState('ПХ-2026-001');
+
+  useEffect(() => {
+    if (!isReceiptModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const prevPaddingRight = document.body.style.paddingRight;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [isReceiptModalOpen]);
 
   const filteredOrders = orders.filter(order => {
     const matchSearch =
@@ -52,35 +69,35 @@ export const Admin1CWorkstation: React.FC = () => {
     switch (status) {
       case 'invoice_issued':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200">
+          <span className="badge-status-issued">
             <Clock className="w-3 h-3 text-cyan-600" />
             Счёт выставлен (Резерв)
           </span>
         );
       case 'quote_sent':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-            <FileSpreadsheet className="w-3 h-3 text-blue-600" />
+          <span className="badge-status-issued">
+            <FileSpreadsheet className="w-3 h-3 text-cyan-600" />
             КП отправлено
           </span>
         );
       case 'paid':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <span className="badge-status-paid">
             <CheckCircle className="w-3 h-3 text-emerald-600" />
             Оплачен бухгалтерией
           </span>
         );
       case 'shipped':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
+          <span className="badge-status-shipped">
             <Truck className="w-3 h-3 text-indigo-600" />
             Отгружен со склада
           </span>
         );
       case 'cancelled':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+          <span className="badge-status-cancelled">
             <AlertCircle className="w-3 h-3 text-rose-600" />
             Аннулирован
           </span>
@@ -436,15 +453,22 @@ export const Admin1CWorkstation: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 font-medium">
-                {movements.map(m => {
-                  const wh = WAREHOUSES.find(w => w.id === m.warehouseId);
-                  const isReceipt = m.type === 'receipt';
-                  const isShipment = m.type === 'shipment';
-                  const isReservation = m.type === 'reservation';
+                {movements.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-10 text-center text-slate-400">
+                      Регистр складских проводок пуст. Проводки фиксируются автоматически при оприходовании (Приход 1С), резервировании под счёт или списании при отгрузке.
+                    </td>
+                  </tr>
+                ) : (
+                  movements.map(m => {
+                    const wh = WAREHOUSES.find(w => w.id === m.warehouseId);
+                    const isReceipt = m.type === 'receipt';
+                    const isShipment = m.type === 'shipment';
+                    const isReservation = m.type === 'reservation';
 
-                  return (
-                    <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-3 font-mono text-[11px] text-gray-500">
+                    return (
+                      <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-3 font-mono text-[11px] text-gray-500">
                         {new Date(m.timestamp).toLocaleString('ru-RU')}
                       </td>
                       <td className="p-3">
@@ -482,7 +506,7 @@ export const Admin1CWorkstation: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -491,7 +515,7 @@ export const Admin1CWorkstation: React.FC = () => {
 
       {/* QUICK RECEIPT MODAL */}
       {isReceiptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-2xl border border-gray-200">
             <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
               <PlusCircle className="w-5 h-5 text-cyan-600" />

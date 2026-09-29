@@ -25,7 +25,21 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    const prevOverflow = document.body.style.overflow;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const prevPaddingRight = document.body.style.paddingRight;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
   }, [onClose]);
 
   const isInvoice = order.type === 'invoice';
@@ -125,7 +139,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
       <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col my-auto border border-gray-200">
         
         {/* Action Header - Excluded from Print */}

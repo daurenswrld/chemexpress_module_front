@@ -16,6 +16,10 @@ export interface ChemProduct {
   in_stock: boolean;
   stock_qty: number | null;
   price: number | null;
+  main_image_url?: string;
+  category_name?: string;
+  spec_text?: string;
+  cat_no?: string;
 }
 
 export type WarehouseId = 'wh-almaty-central' | 'wh-spec-chem' | 'wh-precursors';

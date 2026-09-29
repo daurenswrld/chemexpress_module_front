@@ -1,119 +1,255 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { 
-  Building2, 
   Phone, 
   MapPin, 
-  FileSpreadsheet, 
-  ShoppingCart, 
-  Layers
+  ShoppingBag, 
+  ExternalLink,
+  Clock,
+  Mail,
+  ArrowLeft,
+  Search,
+  X,
+  FlaskConical,
+  TestTube2,
+  Boxes,
+  FileText
 } from 'lucide-react';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
 
 export const Header: React.FC = () => {
-  const { currentView, setCurrentView, cart, openOrderDrawer } = useStore();
+  const { 
+    currentView, 
+    setCurrentView, 
+    catalogTab, 
+    setCatalogTab, 
+    searchQuery, 
+    setSearchQuery, 
+    cart, 
+    openOrderDrawer 
+  } = useStore();
+
+  const [headerSearch, setHeaderSearch] = useState(searchQuery);
+
+  // Sync with global store search query
+  useEffect(() => {
+    setHeaderSearch(searchQuery);
+  }, [searchQuery]);
+
+  const handleSearchChange = (val: string) => {
+    setHeaderSearch(val);
+    setSearchQuery(val);
+    if (currentView !== 'catalog') {
+      setCurrentView('catalog');
+    }
+  };
+
+  const handleCategoryClick = (tab: 'reagents' | 'dishware' | 'other') => {
+    if (currentView !== 'catalog') {
+      setCurrentView('catalog');
+    }
+    setCatalogTab(tab);
+    window.scrollTo({ top: 320, behavior: 'smooth' });
+  };
 
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cart.reduce((sum, item) => sum + item.product.computedPrice * item.quantity, 0);
+  const totalWithVat = totalAmount + Math.round(totalAmount * 0.12);
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 no-print">
-      {/* Top Contact Micro Bar */}
-      <div className="bg-slate-900 text-white text-xs py-1.5 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-4 text-[11px] text-gray-300">
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-              {COMPANY_SELLER_DETAILS.legalAddress}
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print transition-all">
+      {/* Top Utility Bar */}
+      <div className="bg-slate-100/80 border-b border-slate-200/60 text-slate-600 text-xs py-1.5 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Location & Hours */}
+          <div className="flex items-center gap-4 text-[11px]">
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+              <MapPin className="w-3.5 h-3.5 text-navy-800" />
+              <span>Алматы, с. Отеген Батыр, ул. Мусрепова, 5а</span>
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-cyan-400" />
-              {COMPANY_SELLER_DETAILS.phone}
+            <span className="hidden lg:inline-flex items-center gap-1.5 text-slate-500">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>Пн–Пт: 09:00 – 18:00</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px] text-gray-300">
-            <span className="inline-flex items-center gap-1 font-mono text-cyan-300">
-              <Building2 className="w-3 h-3 text-cyan-400" />
-              БИН {COMPANY_SELLER_DETAILS.bin}
-            </span>
-            <span className="hidden md:inline text-gray-500">|</span>
-            <span className="hidden md:inline text-emerald-400 font-medium">
-              1С:Предприятие 8.3 • Синхронизация склада
-            </span>
+          {/* Right: Direct Contacts & Main Portal */}
+          <div className="flex items-center gap-4 text-[11px]">
+            <a 
+              href="tel:+77072828030" 
+              className="inline-flex items-center gap-1.5 font-semibold text-slate-800 hover:text-navy-900 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 text-navy-800" />
+              <span>{COMPANY_SELLER_DETAILS.phone}</span>
+            </a>
+
+            <span className="text-slate-300 hidden sm:inline">|</span>
+
+            <a
+              href="mailto:order@chemexpress.kz"
+              className="inline-flex items-center gap-1.5 font-medium text-slate-600 hover:text-slate-900 transition-colors hidden sm:inline-flex"
+            >
+              <Mail className="w-3.5 h-3.5 text-slate-400" />
+              <span>order@chemexpress.kz</span>
+            </a>
+
+            <span className="text-slate-300">|</span>
+
+            <a
+              href="https://chemexpress.kz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-semibold text-navy-900 hover:text-navy-700 transition-colors"
+            >
+              <span>chemexpress.kz</span>
+              <ExternalLink className="w-3 h-3 text-slate-400" />
+            </a>
           </div>
         </div>
       </div>
 
-      {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-        {/* Logo and Brand */}
+      {/* Main Header Bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 lg:gap-6">
+        
+        {/* Brand Logo */}
         <div 
-          onClick={() => setCurrentView('catalog')}
-          className="flex items-center gap-3 cursor-pointer group select-none"
+          onClick={() => {
+            setCurrentView('catalog');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="flex items-center cursor-pointer group select-none shrink-0"
         >
-          <div className="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center font-bold shadow-sm">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" />
-              <circle cx="12" cy="15" r="1.5" fill="currentColor" />
-            </svg>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-extrabold tracking-tight text-gray-900 font-sans">
-                Chemexpress
-              </span>
-              <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">
-                B2B • 1C
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500 font-medium -mt-0.5">
-              Модуль складского учёта и генерации документов
-            </p>
-          </div>
+          <img 
+            src="/logo.svg" 
+            alt="ChemExpress" 
+            className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+          />
         </div>
 
-        {/* View Switcher and Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200">
-            <button
-              onClick={() => setCurrentView('catalog')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                currentView === 'catalog'
-                  ? 'bg-white text-gray-900 shadow-xs border border-gray-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-cyan-600" />
-              <span>Каталог товаров</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentView('admin')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                currentView === 'admin'
-                  ? 'bg-white text-gray-900 shadow-xs border border-gray-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-cyan-600" />
-              <span>Рабочее место 1С</span>
-            </button>
-          </div>
-
-          {/* Cart / Order Drawer Trigger */}
+        {/* Center: Live Catalog Navigation Pills */}
+        <nav className="hidden lg:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shrink-0">
           <button
-            onClick={() => openOrderDrawer('invoice')}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm transition-all"
+            type="button"
+            onClick={() => handleCategoryClick('reagents')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'catalog' && catalogTab === 'reagents'
+                ? 'bg-white text-navy-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
           >
-            <ShoppingCart className="w-4 h-4" />
-            <span>Оформить заявку</span>
-            {totalCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white text-cyan-800 text-[11px] font-mono">
-                {totalCount}
-              </span>
-            )}
+            <FlaskConical className="w-3.5 h-3.5 text-navy-700" />
+            <span>Реактивы</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleCategoryClick('dishware')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'catalog' && catalogTab === 'dishware'
+                ? 'bg-white text-navy-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <TestTube2 className="w-3.5 h-3.5 text-navy-700" />
+            <span>Посуда Synthware</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleCategoryClick('other')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'catalog' && catalogTab === 'other'
+                ? 'bg-white text-navy-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Boxes className="w-3.5 h-3.5 text-navy-700" />
+            <span>Биореактивы & ELISA</span>
+          </button>
+        </nav>
+
+        {/* Center-Right: Compact Live Search in Header */}
+        <div className="flex-1 max-w-xs md:max-w-sm xl:max-w-md relative hidden md:block">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={headerSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Поиск по CAS, названию или кат. №..."
+            className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-100/90 hover:bg-slate-50 focus:bg-white border border-slate-200/90 rounded-xl outline-none focus:border-navy-900 focus:ring-2 focus:ring-navy-900/10 transition-all font-medium placeholder:text-slate-400"
+          />
+          {headerSearch && (
+            <button
+              onClick={() => handleSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
+        {/* Right Action Area */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Admin Mode Badge & Return (Only visible when admin view is active) */}
+          {currentView === 'admin' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-amber-900 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                Служебный журнал 1С
+              </span>
+              <button
+                onClick={() => setCurrentView('catalog')}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>В каталог</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Quick Quote Trigger */}
+              <button
+                type="button"
+                onClick={() => openOrderDrawer('quote')}
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                title="Сформировать официальное коммерческое предложение с круглой печатью"
+              >
+                <FileText className="w-3.5 h-3.5 text-navy-800" />
+                <span>Запросить КП</span>
+              </button>
+
+              {/* B2B Cart / Requisition Button */}
+              <button
+                onClick={() => openOrderDrawer('invoice')}
+                className={`inline-flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer select-none active:scale-[0.98] ${
+                  totalCount > 0
+                    ? 'bg-navy-900 hover:bg-navy-800 text-white shadow-navy-900/10'
+                    : 'bg-slate-900 hover:bg-slate-800 text-white'
+                }`}
+              >
+                <div className="relative">
+                  <ShoppingBag className="w-4 h-4 text-cyan-300" />
+                  {totalCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-extrabold text-[10px] leading-tight shadow-xs">
+                      {totalCount}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-left hidden sm:block">
+                  <div className="leading-tight font-bold">
+                    {totalCount > 0 ? 'Спецификация' : 'Оформить заявку'}
+                  </div>
+                  {totalCount > 0 && (
+                    <div className="text-[10px] font-mono font-medium text-cyan-200 leading-tight">
+                      {totalWithVat.toLocaleString('ru-RU')} ₸
+                    </div>
+                  )}
+                </div>
+              </button>
+            </>
+          )}
+        </div>
+
       </div>
     </header>
   );

@@ -1,23 +1,23 @@
-import type { Warehouse, ClientEntity, ChemProduct } from '../types';
+import type { Warehouse, ChemProduct } from '../types';
 
 export const WAREHOUSES: Warehouse[] = [
   {
     id: 'wh-almaty-central',
-    name: 'Центральный склад (Отеген Батыр)',
+    name: 'Главный склад ChemExpress (с. Отеген Батыр)',
     city: 'Алматы',
     address: 'Алматинская обл., с. Отеген Батыр, ул. Мусрепова, 5а',
   },
   {
     id: 'wh-spec-chem',
-    name: 'Склад спецреактивов и растворителей',
+    name: 'Склад органических реактивов и растворителей',
     city: 'Алматы',
-    address: 'Илийский тракт, терминал 4B',
+    address: 'Илийский район, терминал ChemExpress 4B',
   },
   {
     id: 'wh-precursors',
     name: 'Склад прекурсоров (Спецучёт МВД РК)',
     city: 'Алматы',
-    address: 'Зона лицензионного хранения',
+    address: 'Зона лицензионного хранения химвеществ',
     isSpecialPermitRequired: true,
   },
 ];
@@ -36,45 +36,6 @@ export const COMPANY_SELLER_DETAILS = {
   directorName: 'Искаков Е. М.',
   chiefAccountantName: 'Жусупова А. С.',
 };
-
-export const MOCK_CLIENTS: ClientEntity[] = [
-  {
-    bin: '080140012345',
-    companyName: 'ТОО "КазХимСинтез"',
-    kbe: '17',
-    iik: 'KZ456010002003456789',
-    bik: 'HSBKKZKX',
-    bankName: 'АО "Народный Банк Казахстана"',
-    contactName: 'Алексей Бережной',
-    contactPhone: '+7 (701) 450-89-22',
-    contactEmail: 'procurement@kazchimsynthez.kz',
-    deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
-  },
-  {
-    bin: '140540023456',
-    companyName: 'ТОО "ЛабФарм Трейд"',
-    kbe: '17',
-    iik: 'KZ897050001004567123',
-    bik: 'CASPKZKA',
-    bankName: 'АО "Kaspi Bank"',
-    contactName: 'Динара Серикова',
-    contactPhone: '+7 (777) 321-44-55',
-    contactEmail: 'orders@labpharm.kz',
-    deliveryAddress: 'г. Астана, ул. Достык, 18, БЦ "Москва"',
-  },
-  {
-    bin: '200340034567',
-    companyName: 'ТОО "КазГеоАналитика"',
-    kbe: '17',
-    iik: 'KZ123010009001234890',
-    bik: 'FORBKZKA',
-    bankName: 'АО "ForteBank"',
-    contactName: 'Марат Ержанов',
-    contactPhone: '+7 (705) 890-11-20',
-    contactEmail: 'lab@kazgeo-analytics.kz',
-    deliveryAddress: 'г. Караганда, пр. Бухар Жырау, 42',
-  },
-];
 
 // Initial seeded items from official live chemexpress.kz database
 export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
