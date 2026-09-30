@@ -16,10 +16,7 @@ import {
   Download,
   Receipt,
   FlaskConical,
-  CheckCircle2,
-  Calendar,
-  Maximize2,
-  ZoomIn
+  Maximize2
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 

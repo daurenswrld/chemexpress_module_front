@@ -1,16 +1,13 @@
 import React from 'react';
 import { 
-  Building2, 
   MapPin, 
   Phone, 
   Mail, 
   Clock, 
   Heart, 
-  FileText, 
-  Layers, 
-  ArrowUpRight,
-  ExternalLink,
-  ChevronRight
+  Layers,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
 import { useStore } from '../store/useStore';

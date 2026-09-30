@@ -10,7 +10,6 @@ import {
   Check, 
   Plus, 
   Minus, 
-  Building2, 
   Loader2, 
   ChevronLeft,
   ChevronRight,
@@ -23,13 +22,11 @@ import {
   FlaskConical,
   TestTube2,
   Boxes,
-  Database,
   ShieldCheck,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  X,
-  ShoppingBag
+  X
 } from 'lucide-react';
 
 export const ProcurementCatalog: React.FC = () => {
@@ -54,7 +51,6 @@ export const ProcurementCatalog: React.FC = () => {
     fetchLiveProducts,
     addToCart,
     getAvailableStock,
-    cart,
     openOrderDrawer,
   } = useStore();
 
@@ -735,7 +731,6 @@ export const ProcurementCatalog: React.FC = () => {
               ) : (
                 displayProducts.map(product => {
                   const available = getAvailableStock(product);
-                  const totalPhysical = product.stock.reduce((sum, s) => sum + s.physical, 0);
                   const currentQty = getQty(product.id);
                   const priceWithVat = Math.round(product.computedPrice * 1.12);
 

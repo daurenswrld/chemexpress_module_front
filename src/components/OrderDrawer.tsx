@@ -19,11 +19,9 @@ import {
   CreditCard, 
   ChevronDown, 
   ChevronUp, 
-  ChevronRight, 
   AlertCircle, 
   Clock,
   Sparkles,
-  MapPin,
   ShieldCheck,
   Download
 } from 'lucide-react';
