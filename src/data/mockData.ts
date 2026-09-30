@@ -55,6 +55,7 @@ export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
     in_stock: true,
     stock_qty: 35,
     price: 19800,
+    main_image_url: 'https://chemexpress.kz/media/products/30164/0c9e6c41-4733-48ed-ba85-db309f61bfc8_V222440.png',
   },
   {
     id: 2,
@@ -123,6 +124,7 @@ export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
     in_stock: true,
     stock_qty: 8,
     price: 185000,
+    main_image_url: 'https://chemexpress.kz/media/products/30419/f248b270-e04b-4d6b-bb11-bb777aebbd3d_D451910.png',
   },
   {
     id: 580366,
@@ -140,6 +142,7 @@ export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
     in_stock: true,
     stock_qty: 5,
     price: 142000,
+    main_image_url: 'https://chemexpress.kz/media/products/30423/768682e8-14df-43ec-9f86-e95b839429e5_D452910.png',
   },
   {
     id: 741192,
@@ -157,6 +160,7 @@ export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
     in_stock: true,
     stock_qty: 90,
     price: 42000,
+    main_image_url: 'https://chemexpress.kz/media/products/30416/fd128fe4-fb75-4e21-b6cf-49983a2a06b9_D451410.png',
   },
   {
     id: 88193,

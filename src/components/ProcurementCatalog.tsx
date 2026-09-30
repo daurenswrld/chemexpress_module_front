@@ -767,14 +767,18 @@ export const ProcurementCatalog: React.FC = () => {
                       {/* 2. Наименование и Спецификация */}
                       <td className="catalog-td">
                         <div className="flex items-center gap-3">
-                          {/* Photo Thumbnail only for Dishware and Other (strictly removed from Reagents) */}
-                          {catalogTab !== 'reagents' && product.main_image_url && (
+                          {/* Photo Thumbnail if available */}
+                          {product.main_image_url && (
                             <div className="w-10 h-10 rounded-lg border border-slate-200/80 bg-slate-50 flex items-center justify-center shrink-0 overflow-hidden">
                               <img 
                                 src={product.main_image_url} 
                                 alt={product.title_ru} 
                                 className="w-full h-full object-contain p-0.5" 
                                 loading="lazy"
+                                onError={(e) => {
+                                  // Hide container if image fails to load
+                                  (e.currentTarget.parentElement as HTMLElement)?.classList.add('hidden');
+                                }}
                               />
                             </div>
                           )}
