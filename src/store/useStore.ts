@@ -463,16 +463,8 @@ export const useStore = create<AppState>((set, get) => ({
   movements: [],
 
   toasts: [],
-  addToast: (toast) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    set(state => ({ toasts: [...state.toasts, { ...toast, id }] }));
-    setTimeout(() => {
-      get().removeToast(id);
-    }, 4500);
-  },
-  removeToast: (id) => {
-    set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }));
-  },
+  addToast: () => {},
+  removeToast: () => {},
 
   getAvailableStock: (product, warehouseId) => {
     if (warehouseId) {

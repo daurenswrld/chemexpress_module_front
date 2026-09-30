@@ -5,7 +5,7 @@ import { ProcurementCatalog } from './components/ProcurementCatalog';
 import { Admin1CWorkstation } from './components/Admin1CWorkstation';
 import { OrderDrawer } from './components/OrderDrawer';
 import { DocumentPreview } from './components/DocumentPreview';
-import { ToastContainer } from './components/Toast';
+import { ScrollToTop } from './components/ScrollToTop';
 import { Footer } from './components/Footer';
 
 export const App: React.FC = () => {
@@ -58,8 +58,8 @@ export const App: React.FC = () => {
         <DocumentPreview order={previewOrder} onClose={() => setPreviewOrder(null)} />
       )}
 
-      {/* Pure SVG Toasts */}
-      <ToastContainer />
+      {/* Floating Scroll To Top Widget */}
+      <ScrollToTop />
 
       {/* Redesigned Corporate Footer */}
       <Footer />

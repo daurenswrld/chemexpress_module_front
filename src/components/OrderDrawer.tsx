@@ -11,13 +11,21 @@ import {
   Plus, 
   Minus, 
   CheckCircle2, 
+  Check, 
   Lock, 
-  ArrowRight,
-  Truck,
-  CreditCard,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle
+  ArrowRight, 
+  ArrowLeft, 
+  Truck, 
+  CreditCard, 
+  ChevronDown, 
+  ChevronUp, 
+  ChevronRight, 
+  AlertCircle, 
+  Clock,
+  Sparkles,
+  MapPin,
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 
 export const OrderDrawer: React.FC = () => {
@@ -32,9 +40,10 @@ export const OrderDrawer: React.FC = () => {
     createOrder,
   } = useStore();
 
+  const [step, setStep] = useState<1 | 2>(1);
   const [activeTab, setActiveTab] = useState<OrderType>(orderDrawerType || 'invoice');
 
-  // Client form - clean production state
+  // Client form state
   const [bin, setBin] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -53,8 +62,26 @@ export const OrderDrawer: React.FC = () => {
   const [validDays, setValidDays] = useState(14);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Sync activeTab with orderDrawerType from trigger and reset step to 1
+  useEffect(() => {
+    if (isOrderDrawerOpen) {
+      if (orderDrawerType) {
+        setActiveTab(orderDrawerType);
+      }
+      setStep(1);
+      setFormError(null);
+    }
+  }, [isOrderDrawerOpen, orderDrawerType]);
+
+  // Lock body scroll and handle Escape key
   useEffect(() => {
     if (!isOrderDrawerOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeOrderDrawer();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     const prevOverflow = document.body.style.overflow;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     const prevPaddingRight = document.body.style.paddingRight;
@@ -65,16 +92,18 @@ export const OrderDrawer: React.FC = () => {
     }
 
     return () => {
+      window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = prevOverflow;
       document.body.style.paddingRight = prevPaddingRight;
     };
-  }, [isOrderDrawerOpen]);
+  }, [isOrderDrawerOpen, closeOrderDrawer]);
 
   if (!isOrderDrawerOpen) return null;
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.computedPrice * item.quantity, 0);
   const vat = Math.round(subtotal * 0.12);
   const total = subtotal + vat;
+  const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Phone input mask (+7 7XX XXX-XX-XX)
   const handlePhoneChange = (val: string) => {
@@ -96,12 +125,34 @@ export const OrderDrawer: React.FC = () => {
     if (formError) setFormError(null);
   };
 
+  // Quick fill demo B2B company data for effortless testing
+  const handleQuickFillDemo = () => {
+    setBin('230740019280');
+    setCompanyName('ТОО «КазХимПром Аналитика»');
+    setContactName('Алибеков Руслан Маратович');
+    setContactPhone('+7 (777) 345-67-89');
+    setContactEmail('zakup@kazchimprom.kz');
+    setDeliveryType('delivery');
+    setDeliveryAddress('г. Алматы, Бостандыкский район, ул. Тимирязева 42, корпус 3');
+    setFormError(null);
+  };
+
+  const handleProceedToStep2 = () => {
+    if (cart.length === 0) {
+      setFormError('Спецификация пуста. Выберите необходимые позиции из каталога.');
+      return;
+    }
+    setFormError(null);
+    setStep(2);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
     if (cart.length === 0) {
       setFormError('Спецификация заявки пуста. Выберите реактивы из каталога.');
+      setStep(1);
       return;
     }
 
@@ -111,7 +162,7 @@ export const OrderDrawer: React.FC = () => {
     }
 
     if (!companyName.trim()) {
-      setFormError('Укажите официальное наименование организации (ТОО, АО, ИП).');
+      setFormError('Укажите официальное наименование организации (ТОО, АО, ИП, НИИ).');
       return;
     }
 
@@ -171,447 +222,738 @@ export const OrderDrawer: React.FC = () => {
     closeOrderDrawer();
   };
 
+  const handleExportCsv = () => {
+    if (cart.length === 0) return;
+
+    // Headers with BOM for proper cyrillic display in Microsoft Excel
+    const headers = [
+      '№',
+      'Артикул',
+      'CAS номер',
+      'Наименование товара',
+      'Бренд',
+      'Фасовка',
+      'Количество',
+      'Цена без НДС (KZT)',
+      'НДС 12% (KZT)',
+      'Цена с НДС (KZT)',
+      'Сумма с НДС (KZT)'
+    ];
+
+    const rows = cart.map((item, index) => {
+      const priceNet = item.product.computedPrice;
+      const vat = Math.round(priceNet * 0.12);
+      const priceWithVat = priceNet + vat;
+      const totalWithVat = priceWithVat * item.quantity;
+      const sanitize = (str: string | undefined | null) => 
+        str ? `"${str.replace(/"/g, '""')}"` : '""';
+
+      return [
+        index + 1,
+        sanitize(item.product.product_code || `ID-${item.product.id}`),
+        sanitize(item.product.cas_number || 'N/A'),
+        sanitize(item.product.title_ru),
+        sanitize(item.product.brand || 'ChemExpress'),
+        sanitize(item.product.quantity || '1 шт'),
+        item.quantity,
+        priceNet,
+        vat,
+        priceWithVat,
+        totalWithVat
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute('download', `Спецификация_ChemExpress_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="fixed inset-0 !m-0 z-50 overflow-hidden no-print">
+    <div className="fixed inset-0 !m-0 z-50 overflow-y-auto no-print flex items-center justify-center p-3 sm:p-5 md:p-6">
+      {/* Dark backdrop with smooth blur */}
       <div 
         onClick={closeOrderDrawer}
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity" 
+        className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm transition-opacity duration-200" 
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-        <div className="w-screen max-w-xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
-          
-          {/* Header */}
-          <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200/60">
-                  B2B Документооборот
-                </span>
-                <span className="text-xs text-slate-400 font-mono">•</span>
-                <span className="text-xs text-slate-500 font-medium">ТОО «Chemexpress»</span>
-              </div>
-              <h2 className="text-base font-bold text-slate-900 mt-1">
-                Оформление спецификации и заявки
+      {/* Centered Modal Studio Card */}
+      <div className="relative w-full max-w-3xl lg:max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10 my-auto">
+        
+        {/* Top Modal Header */}
+        <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                {step === 1 ? 'Спецификация и цель' : 'Реквизиты и подтверждение'}
               </h2>
+              <span className="text-[11px] font-mono font-bold text-navy-900 bg-navy-50 px-2 py-0.5 rounded-full border border-navy-100">
+                {step === 1 ? 'Шаг 1 из 2' : 'Шаг 2 из 2'}
+              </span>
             </div>
-            <button
-              onClick={closeOrderDrawer}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-              aria-label="Закрыть"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium">
+              <span>{totalItemsCount} {totalItemsCount === 1 ? 'позиция' : (totalItemsCount > 1 && totalItemsCount < 5) ? 'позиции' : 'позиций'}</span>
+              <span className="text-slate-300">•</span>
+              <span className="font-mono font-bold text-slate-900">{total.toLocaleString('ru-RU')} ₸</span>
+              <span className="text-[11px] text-slate-400 font-normal">с НДС 12%</span>
+            </div>
           </div>
 
-          {/* 3 Scenario Tabs */}
-          <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-100/80 p-1.5 gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('invoice')}
-              className={`py-2 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'invoice'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Receipt className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-              <span>1. Счёт на оплату (1С)</span>
-            </button>
+          <button
+            type="button"
+            onClick={closeOrderDrawer}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Закрыть (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('quote')}
-              className={`py-2 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'quote'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-              <span>2. Официальное КП</span>
-            </button>
+        {/* Stepper Progress Bar */}
+        <div className="shrink-0 grid grid-cols-2 bg-slate-50 border-b border-slate-200 text-xs">
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className={`py-3 px-5 flex items-center justify-center gap-2 font-semibold transition-all cursor-pointer border-b-2 ${
+              step === 1 
+                ? 'border-navy-900 text-navy-900 bg-white font-bold' 
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+              step === 1 ? 'bg-navy-900 text-white' : 'bg-emerald-600 text-white'
+            }`}>
+              {step === 2 ? <Check className="w-3 h-3 stroke-[3]" /> : '1'}
+            </span>
+            <span>1. Состав и формат документа</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('request')}
-              className={`py-2 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'request'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-              <span>3. Запрос менеджеру</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (cart.length > 0) setStep(2);
+            }}
+            disabled={cart.length === 0}
+            className={`py-3 px-5 flex items-center justify-center gap-2 font-semibold transition-all border-b-2 ${
+              step === 2 
+                ? 'border-navy-900 text-navy-900 bg-white font-bold' 
+                : 'border-transparent text-slate-400 disabled:opacity-50 cursor-pointer'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+              step === 2 ? 'bg-navy-900 text-white' : 'bg-slate-200 text-slate-500'
+            }`}>
+              2
+            </span>
+            <span>2. Реквизиты и доставка</span>
+          </button>
+        </div>
+
+        {/* Error notification banner */}
+        {formError && (
+          <div className="shrink-0 mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <span>{formError}</span>
           </div>
+        )}
 
-          {/* Error alert */}
-          {formError && (
-            <div className="mx-5 mt-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{formError}</span>
-            </div>
-          )}
-
-          {/* Body Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
-            
-            {/* Section: Customer details */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-cyan-600" />
-                  Реквизиты организации (Покупатель РК)
-                </span>
-                <span className="text-[11px] text-slate-400 font-mono">12 цифр БИН</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="label-b2b">
-                    БИН / ИИН организации <span className="text-rose-500">*</span>
+        {/* ================= STEP 1: Состав и выбор документа ================= */}
+        {step === 1 && (
+          <>
+            {/* Scrollable Step 1 Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 animate-in fade-in duration-150">
+              
+              {/* Purpose Selection (3 Interactive B2B Cards) */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Какой документ подготовить?
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={bin}
-                      maxLength={12}
-                      onChange={(e) => handleBinChange(e.target.value)}
-                      placeholder="12-значный БИН"
-                      className="input-b2b font-mono"
-                      required
-                    />
-                    {bin.length === 12 && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 absolute right-2.5 top-2.5" />
-                    )}
-                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">Выберите требуемый сценарий</span>
                 </div>
 
-                <div>
-                  <label className="label-b2b">
-                    Наименование организации <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="ТОО / АО / ИП / НИИ..."
-                    className="input-b2b"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="label-b2b">
-                    ФИО представителя <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    placeholder="Фамилия Имя Отчество"
-                    className="input-b2b"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="label-b2b">
-                    Контактный телефон <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={contactPhone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="+7 (7XX) XXX-XX-XX"
-                    className="input-b2b font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="label-b2b">
-                    Рабочий e-mail для отправки счетов и документов <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    placeholder="b2b@company.kz"
-                    className="input-b2b"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Delivery Method Selection */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-cyan-600" />
-                  Способ получения товара
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setDeliveryType('pickup')}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    deliveryType === 'pickup'
-                      ? 'border-cyan-600 bg-cyan-50/50 text-cyan-900 font-bold'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="font-bold flex items-center justify-between">
-                    <span>Самовывоз со склада</span>
-                    {deliveryType === 'pickup' && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />}
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-normal mt-1 leading-snug">
-                    с. Отеген Батыр, ул. Мусрепова, 5а
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDeliveryType('delivery')}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    deliveryType === 'delivery'
-                      ? 'border-cyan-600 bg-cyan-50/50 text-cyan-900 font-bold'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="font-bold flex items-center justify-between">
-                    <span>Доставка по РК</span>
-                    {deliveryType === 'delivery' && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />}
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-normal mt-1 leading-snug">
-                    Курьер / ТК в регионы Казахстана
-                  </div>
-                </button>
-              </div>
-
-              {deliveryType === 'delivery' && (
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1 text-xs">
-                    Адрес доставки (город, улица, номер лаборатории/склада)
-                  </label>
-                  <input
-                    type="text"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="Например: г. Астана, пр. Туран 53, корпус 2"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 transition-all"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Optional Banking Details Accordion for Invoices */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowBanking(!showBanking)}
-                className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs font-semibold text-slate-700 transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Банковские реквизиты (ИИК / БИК)</span>
-                  <span className="text-[10px] text-slate-400 font-normal">(опционально)</span>
-                </span>
-                {showBanking ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showBanking && (
-                <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs border-t border-slate-200">
-                  <div>
-                    <label className="block text-slate-700 font-medium mb-1">ИИК (Номер счета IBAN KZ...)</label>
-                    <input
-                      type="text"
-                      value={iik}
-                      onChange={(e) => setIik(e.target.value.toUpperCase())}
-                      placeholder="KZ88601000..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs outline-none focus:border-cyan-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-medium mb-1">БИК банка</label>
-                    <input
-                      type="text"
-                      value={bik}
-                      onChange={(e) => setBik(e.target.value.toUpperCase())}
-                      placeholder="HSBKKZKX"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs outline-none focus:border-cyan-600"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-slate-700 font-medium mb-1">Наименование обслуживающего банка</label>
-                    <input
-                      type="text"
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      placeholder="АО «Народный Банк Казахстана»..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-cyan-600"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Validity selector for Quote */}
-            {activeTab === 'quote' && (
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                <span className="text-slate-700 font-semibold">Срок фиксации цен в КП:</span>
-                <div className="flex gap-1.5">
-                  {[7, 14, 30].map(d => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setValidDays(d)}
-                      className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                        validDays === d 
-                          ? 'bg-cyan-600 text-white shadow-xs' 
-                          : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {d} дней
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Selected Items Specification List */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                <span>Спецификация к заказу ({cart.length})</span>
-                {cart.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearCart}
-                    className="text-xs text-rose-600 hover:underline font-normal"
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Option 1: Invoice */}
+                  <div
+                    onClick={() => setActiveTab('invoice')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                      activeTab === 'invoice'
+                        ? 'border-navy-900 bg-navy-50/70 ring-2 ring-navy-900/10 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+                    }`}
                   >
-                    Очистить спецификацию
-                  </button>
+                    <div>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className={`p-2 rounded-xl ${activeTab === 'invoice' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                          <Receipt className="w-4 h-4" />
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                          activeTab === 'invoice' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          1С Склад
+                        </span>
+                      </div>
+                      <div className="font-bold text-xs text-slate-900">Счёт на оплату</div>
+                      <div className="text-[11px] text-slate-500 leading-snug mt-1">
+                        Для бухгалтерии. Бронирует остатки на складе в 1С
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Quote */}
+                  <div
+                    onClick={() => setActiveTab('quote')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                      activeTab === 'quote'
+                        ? 'border-navy-900 bg-navy-50/70 ring-2 ring-navy-900/10 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className={`p-2 rounded-xl ${activeTab === 'quote' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                          activeTab === 'quote' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          С печатью
+                        </span>
+                      </div>
+                      <div className="font-bold text-xs text-slate-900">Официальное КП</div>
+                      <div className="text-[11px] text-slate-500 leading-snug mt-1">
+                        С фиксацией цен и круглой печатью для согласования
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Option 3: Request */}
+                  <div
+                    onClick={() => setActiveTab('request')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                      activeTab === 'request'
+                        ? 'border-navy-900 bg-navy-50/70 ring-2 ring-navy-900/10 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className={`p-2 rounded-xl ${activeTab === 'request' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                          activeTab === 'request' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          Менеджер
+                        </span>
+                      </div>
+                      <div className="font-bold text-xs text-slate-900">Запрос в отдел</div>
+                      <div className="text-[11px] text-slate-500 leading-snug mt-1">
+                        Индивидуальная фасовка, опт, тех. вопросы
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Specification List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Позиции в спецификации ({cart.length})</span>
+                  {cart.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleExportCsv}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-navy-900 bg-navy-50 hover:bg-navy-100 border border-navy-200/80 rounded-lg transition-colors cursor-pointer"
+                        title="Скачать спецификацию в формате Excel / CSV"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Экспорт в Excel (.csv)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearCart}
+                        className="text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer ml-1"
+                      >
+                        Очистить всё
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {cart.length === 0 ? (
+                  <div className="py-14 text-center text-slate-400 border border-dashed border-slate-300 rounded-2xl text-xs space-y-2 bg-slate-50/50">
+                    <p className="font-bold text-slate-700 text-sm">Спецификация пуста</p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                      Вернитесь в каталог и нажмите кнопку «В заявку» у нужных позиций.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    {cart.map(item => {
+                      const itemTotal = item.product.computedPrice * item.quantity;
+                      const itemTotalWithVat = Math.round(itemTotal * 1.12);
+
+                      return (
+                        <div 
+                          key={item.product.id}
+                          className="p-3.5 bg-slate-50/90 hover:bg-slate-100/60 border border-slate-200 rounded-xl flex items-center justify-between gap-4 text-xs transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-[10px] font-bold text-navy-900 bg-white px-2 py-0.5 rounded border border-navy-200/80">
+                                {item.product.product_code || `ID-${item.product.id}`}
+                              </span>
+                              {item.product.cas_number && item.product.cas_number !== 'N/A' && (
+                                <span className="font-mono text-[10px] text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded">
+                                  CAS {item.product.cas_number}
+                                </span>
+                              )}
+                              {item.product.brand && (
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {item.product.brand}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-slate-900 truncate mt-1 text-[13px]">
+                              {item.product.title_ru}
+                            </h4>
+                            <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                              {item.product.computedPrice.toLocaleString('ru-RU')} ₸ / {item.product.quantity || '1 шт'}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3.5 shrink-0">
+                            {/* Quantity Stepper */}
+                            <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                                className="px-2.5 py-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Уменьшить"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-8 text-center font-mono font-bold text-xs text-slate-900 select-none">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                                className="px-2.5 py-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Увеличить"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Price */}
+                            <div className="text-right min-w-[85px]">
+                              <div className="font-mono font-bold text-slate-900 text-xs">
+                                {itemTotalWithVat.toLocaleString('ru-RU')} ₸
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-mono">с НДС</div>
+                            </div>
+
+                            {/* Delete button */}
+                            <button
+                              type="button"
+                              onClick={() => removeFromCart(item.product.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Удалить позицию"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
-              {cart.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 border border-dashed border-slate-300 rounded-xl text-xs">
-                  Спецификация пуста. Добавьте химреактивы из каталога кнопкой «В заявку».
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {cart.map(item => (
-                    <div 
-                      key={item.product.id}
-                      className="p-3 bg-slate-50/80 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] font-bold text-cyan-800 bg-cyan-50 px-1.5 py-0.2 rounded border border-cyan-200/50">
-                            {item.product.product_code || `ID-${item.product.id}`}
-                          </span>
-                          {item.product.cas_number && (
-                            <span className="font-mono text-[10px] text-slate-400">
-                              CAS {item.product.cas_number}
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-bold text-slate-900 truncate mt-1">
-                          {item.product.title_ru}
-                        </h4>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          {item.product.computedPrice.toLocaleString('ru-RU')} ₸ / {item.product.quantity || 'шт'}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
-                          <button
-                            type="button"
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
-                            className="px-2 py-1 text-slate-600 hover:bg-slate-100 transition-colors"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="px-2.5 font-mono font-bold text-slate-900 text-xs">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
-                            className="px-2 py-1 text-slate-600 hover:bg-slate-100 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                          title="Удалить позицию"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* Comment */}
-            <div>
-              <label className="block text-slate-700 font-bold mb-1 text-xs">
-                Примечание / Требования к спецификации
-              </label>
-              <textarea
-                rows={2}
-                value={clientComment}
-                onChange={(e) => setClientComment(e.target.value)}
-                placeholder="Требования к паспортам CoA/SDS, особые условия фасовки, сроки отгрузки..."
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 transition-all"
-              />
-            </div>
-
-            {/* Footer Summary & Submit */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 mt-auto">
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Сумма по спецификации (без НДС):</span>
-                  <span className="font-mono font-semibold">{subtotal.toLocaleString('ru-RU')} ₸</span>
+            {/* Sticky Step 1 Bottom Bar (Clean Horizontal Layout on Desktop) */}
+            <div className="shrink-0 p-5 sm:px-6 bg-white border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-0.5 text-xs">
+                <div className="flex items-center gap-3 text-slate-500">
+                  <span>Без НДС: <strong className="text-slate-800 font-semibold tabular-nums">{subtotal.toLocaleString('ru-RU')} ₸</strong></span>
+                  <span className="text-slate-300">•</span>
+                  <span>НДС 12%: <strong className="text-slate-800 font-semibold tabular-nums">{vat.toLocaleString('ru-RU')} ₸</strong></span>
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>НДС 12% (Республика Казахстан):</span>
-                  <span className="font-mono font-semibold">{vat.toLocaleString('ru-RU')} ₸</span>
-                </div>
-                <div className="flex justify-between items-baseline pt-2 border-t border-slate-200 text-sm font-bold">
-                  <span className="text-slate-900">Итого к оплате с НДС:</span>
-                  <span className="font-mono text-cyan-800 text-base font-extrabold">
+                <div className="flex items-baseline gap-2 pt-0.5">
+                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">Итого с НДС:</span>
+                  <span className="text-navy-900 text-xl font-bold tracking-tight tabular-nums">
                     {total.toLocaleString('ru-RU')} ₸
                   </span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-cyan-50/70 border border-cyan-200/80 text-[11px] text-cyan-950 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-cyan-700 shrink-0" />
-                <span>При выставлении счёта позиции автоматически бронируются на складе в 1С.</span>
+              <button
+                type="button"
+                onClick={handleProceedToStep2}
+                disabled={cart.length === 0}
+                className="py-3 px-6 rounded-xl bg-navy-900 hover:bg-navy-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99] whitespace-nowrap"
+              >
+                <span>Перейти к реквизитам</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ================= STEP 2: Реквизиты и подтверждение ================= */}
+        {step === 2 && (
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 animate-in fade-in duration-150">
+            
+            {/* Scrollable Step 2 Form Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              
+              {/* Back navigation & demo auto-fill */}
+              <div className="flex items-center justify-between pb-1">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-navy-900 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Вернуться к составу заказа</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleQuickFillDemo}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-navy-900 bg-navy-50 hover:bg-navy-100 px-3 py-1 rounded-lg border border-navy-200/80 transition-colors cursor-pointer"
+                  title="Заполнить реквизиты ТОО для быстрого тестирования"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-navy-800" />
+                  <span>Автозаполнение (тест)</span>
+                </button>
+              </div>
+
+              {/* Selected document type confirmation chip */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Документ на выходе:</span>
+                  <strong className="text-navy-900 font-bold">
+                    {activeTab === 'invoice' ? 'Счёт на оплату (1С) с резервированием остатков' : activeTab === 'quote' ? 'Официальное КП с печатью и фиксацией цен' : 'Запрос в отдел продаж'}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-xs text-navy-800 hover:underline font-semibold cursor-pointer shrink-0"
+                >
+                  Изменить
+                </button>
+              </div>
+
+              {/* Section: Organization details */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-navy-800" />
+                    Реквизиты организации (Покупатель РК)
+                  </span>
+                  <span className="text-[11px] font-mono">
+                    {bin.length === 12 ? (
+                      <span className="text-emerald-700 font-bold inline-flex items-center gap-1">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                        БИН проверен
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">введено {bin.length}/12 цифр</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                  {/* BIN Input */}
+                  <div>
+                    <label className="label-b2b">
+                      БИН / ИИН организации <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={bin}
+                        maxLength={12}
+                        onChange={(e) => handleBinChange(e.target.value)}
+                        placeholder="12 цифр БИН"
+                        className={`input-b2b font-mono transition-colors ${bin.length === 12 ? 'border-emerald-500 ring-1 ring-emerald-500/20' : ''}`}
+                        required
+                        autoFocus
+                      />
+                      {bin.length === 12 && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 absolute right-2.5 top-2.5" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Company Name */}
+                  <div>
+                    <label className="label-b2b">
+                      Наименование организации <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="ТОО / АО / ИП / НИИ..."
+                      className="input-b2b"
+                      required
+                    />
+                  </div>
+
+                  {/* Contact Person */}
+                  <div>
+                    <label className="label-b2b">
+                      ФИО контактного лица <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      placeholder="Фамилия Имя Отчество"
+                      className="input-b2b"
+                      required
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="label-b2b">
+                      Контактный телефон <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={contactPhone}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      placeholder="+7 (7XX) XXX-XX-XX"
+                      className="input-b2b font-mono"
+                      required
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="sm:col-span-2">
+                    <label className="label-b2b">
+                      Рабочий e-mail для отправки документов <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      placeholder="zakup@company.kz"
+                      className="input-b2b"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Delivery Method */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-navy-800" />
+                    Способ получения
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryType('pickup')}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      deliveryType === 'pickup'
+                        ? 'border-navy-900 bg-navy-50/70 text-navy-950 font-bold ring-2 ring-navy-900/10'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Самовывоз</span>
+                      {deliveryType === 'pickup' && <CheckCircle2 className="w-4 h-4 text-navy-900" />}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-normal mt-1 leading-snug">
+                      Алматы, с. Отеген Батыр, ул. Мусрепова, 5а
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryType('delivery')}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      deliveryType === 'delivery'
+                        ? 'border-navy-900 bg-navy-50/70 text-navy-950 font-bold ring-2 ring-navy-900/10'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Доставка по РК</span>
+                      {deliveryType === 'delivery' && <CheckCircle2 className="w-4 h-4 text-navy-900" />}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-normal mt-1 leading-snug">
+                      Курьерская доставка до дверей лаборатории
+                    </div>
+                  </button>
+                </div>
+
+                {deliveryType === 'delivery' && (
+                  <div className="animate-in fade-in duration-150">
+                    <label className="label-b2b">
+                      Адрес доставки (город, улица, номер склада/лаборатории) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Например: г. Астана, пр. Туран 53, лаборатория №2"
+                      className="input-b2b"
+                      required={deliveryType === 'delivery'}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Validity for Quote */}
+              {activeTab === 'quote' && (
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-navy-800" />
+                    <span className="text-slate-700 font-semibold">Срок действия КП:</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[7, 14, 30].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setValidDays(d)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          validDays === d 
+                            ? 'bg-navy-900 text-white shadow-xs font-bold' 
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {d} дней
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Banking details accordion (optional) */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowBanking(!showBanking)}
+                  className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Банковские реквизиты (ИИК / БИК)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">(опционально)</span>
+                  </span>
+                  {showBanking ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                </button>
+
+                {showBanking && (
+                  <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs border-t border-slate-200 animate-in fade-in duration-150">
+                    <div>
+                      <label className="label-b2b">ИИК (IBAN KZ...)</label>
+                      <input
+                        type="text"
+                        value={iik}
+                        onChange={(e) => setIik(e.target.value.toUpperCase())}
+                        placeholder="KZ88601000..."
+                        className="input-b2b font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label-b2b">БИК банка</label>
+                      <input
+                        type="text"
+                        value={bik}
+                        onChange={(e) => setBik(e.target.value.toUpperCase())}
+                        placeholder="HSBKKZKX"
+                        className="input-b2b font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="label-b2b">Обслуживающий банк</label>
+                      <input
+                        type="text"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="АО «Народный Банк Казахстана»..."
+                        className="input-b2b"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Order note / comment */}
+              <div>
+                <label className="label-b2b">
+                  Примечание к заказу
+                </label>
+                <textarea
+                  rows={2}
+                  value={clientComment}
+                  onChange={(e) => setClientComment(e.target.value)}
+                  placeholder="Особые требования к фасовке, паспортам качества CoA/SDS, график отгрузок..."
+                  className="input-b2b resize-none"
+                />
+              </div>
+
+            </div>
+
+            {/* Sticky Step 2 Bottom Bar */}
+            <div className="shrink-0 p-5 sm:px-6 bg-white border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-0.5 text-xs">
+                <div className="text-slate-500">
+                  {activeTab === 'invoice' ? (
+                    <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-emerald-600" />
+                      С фиксацией брони в 1С
+                    </span>
+                  ) : activeTab === 'quote' ? (
+                    <span className="text-navy-900 font-semibold inline-flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-navy-800" />
+                      С круглой печатью ChemExpress
+                    </span>
+                  ) : (
+                    <span>Заявка менеджеру</span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2 pt-0.5">
+                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">Всего к оплате:</span>
+                  <span className="text-navy-900 text-xl font-bold tracking-tight tabular-nums">
+                    {total.toLocaleString('ru-RU')} ₸
+                  </span>
+                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={cart.length === 0}
-                className="w-full py-3 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="py-3 px-6 rounded-xl bg-navy-900 hover:bg-navy-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99] whitespace-nowrap"
               >
                 <span>
                   {activeTab === 'invoice'
-                    ? 'Сформировать счёт (1С) и забронировать остатки'
+                    ? 'Сформировать счёт на оплату (1С)'
                     : activeTab === 'quote'
                     ? 'Сформировать официальное КП с печатью'
                     : 'Отправить заявку в отдел продаж'}
@@ -621,8 +963,8 @@ export const OrderDrawer: React.FC = () => {
             </div>
 
           </form>
+        )}
 
-        </div>
       </div>
     </div>
   );

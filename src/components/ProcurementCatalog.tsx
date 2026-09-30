@@ -22,7 +22,14 @@ import {
   ArrowRight,
   FlaskConical,
   TestTube2,
-  Boxes
+  Boxes,
+  Database,
+  ShieldCheck,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
+  ShoppingBag
 } from 'lucide-react';
 
 export const ProcurementCatalog: React.FC = () => {
@@ -55,7 +62,40 @@ export const ProcurementCatalog: React.FC = () => {
   const [copiedCas, setCopiedCas] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [isClientFiltering, setIsClientFiltering] = useState(false);
+  const [sortField, setSortField] = useState<'default' | 'price' | 'stock' | 'title'>('default');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  const isSearching = inputVal !== searchQuery;
+  const isTableBusy = isLoading || isClientFiltering || isSearching;
+
+  const handleSort = (field: 'price' | 'stock' | 'title') => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortField('default');
+        setSortDirection('asc');
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const scrollToTableTop = () => {
+    if (tableRef.current) {
+      const navOffset = 90; // account for sticky header height
+      const elementPosition = tableRef.current.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Fetch initial live products on mount
   useEffect(() => {
@@ -114,60 +154,130 @@ export const ProcurementCatalog: React.FC = () => {
     return true;
   });
 
-  const cartTotalAmount = cart.reduce((sum, item) => sum + item.product.computedPrice * item.quantity, 0);
-  const cartTotalWithVat = cartTotalAmount + Math.round(cartTotalAmount * 0.12);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const displayProducts = [...filteredProducts].sort((a, b) => {
+    if (sortField === 'price') {
+      return sortDirection === 'asc' 
+        ? a.computedPrice - b.computedPrice 
+        : b.computedPrice - a.computedPrice;
+    }
+    if (sortField === 'stock') {
+      const stockA = getAvailableStock(a);
+      const stockB = getAvailableStock(b);
+      return sortDirection === 'asc' ? stockA - stockB : stockB - stockA;
+    }
+    if (sortField === 'title') {
+      return sortDirection === 'asc'
+        ? a.title_ru.localeCompare(b.title_ru)
+        : b.title_ru.localeCompare(a.title_ru);
+    }
+    return 0;
+  });
+
+  const hasActiveFilters = Boolean(
+    searchQuery || 
+    selectedBrand !== 'all' || 
+    selectedWarehouse !== 'all' || 
+    onlyInStock ||
+    sortField !== 'default'
+  );
 
   return (
     <>
       <div className="space-y-5 pb-16">
       
-      {/* 1. Institutional Hero & KPI Metrics Bar */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-card">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      {/* 1. ChemExpress Editorial Navy Hero */}
+      <div className="bg-gradient-to-br from-navy-950 via-navy-900 to-[#0e3b8a] text-white border border-navy-800/80 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-2xl relative overflow-hidden">
+        {/* Subtle technical grid pattern */}
+        <div 
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          <div>
-            <div className="text-[11px] font-bold text-navy-800 uppercase tracking-wider mb-1">
-              Дистрибьютор химической продукции в Республике Казахстан
+          {/* Left Column: Editorial Copywriting on Navy */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Metadata Eyebrow */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-medium text-slate-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-semibold text-white">ТОО «ChemExpress»</span>
+              <span className="text-white/30">•</span>
+              <span className="font-mono text-[11px] text-cyan-300">1С:Предприятие • Резервы Онлайн</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Каталог химических реактивов и лабораторной продукции
+
+            {/* Headline with quiet confidence */}
+            <h1 className="text-2xl sm:text-3xl lg:text-[38px] font-bold text-white tracking-[-0.03em] leading-[1.15] font-display">
+              Химические реактивы высокой чистоты и лабораторные системы
             </h1>
-            <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-              Прямые поставки реактивов высокой степени чистоты (ЧДА, ХЧ, ОСЧ), аналитических стандартов, лабораторной посуды и расходных материалов со склада в Алматы.
+
+            {/* Editorial Description */}
+            <p className="text-slate-300 text-xs sm:text-[14px] leading-relaxed max-w-xl font-normal">
+              Официальные прямые поставки аналитических стандартов, чистых реактивов (TCI, Macklin, BSY) и лабораторного стекла Synthware со склада в Алматы. Поставки по контрактам с юридическими лицами Республики Казахстан с НДС 12%.
             </p>
+
+            {/* Minimalist Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => openOrderDrawer('quote')}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-navy-950 font-bold text-xs sm:text-sm transition-all cursor-pointer select-none active:scale-[0.98] shadow-sm"
+              >
+                <FileText className="w-4 h-4 text-navy-950" />
+                <span>Запросить официальное КП</span>
+                <ArrowRight className="w-3.5 h-3.5 text-navy-800" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openOrderDrawer('invoice')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs sm:text-sm border border-white/15 backdrop-blur-sm transition-all cursor-pointer select-none active:scale-[0.98]"
+              >
+                <Receipt className="w-4 h-4 text-cyan-300" />
+                <span>Счёт на оплату 1С</span>
+              </button>
+            </div>
+
+            {/* Editorial Key Stats Bar */}
+            <div className="pt-4 border-t border-white/15 grid grid-cols-3 gap-4 text-xs">
+              <div>
+                <div className="font-mono font-bold text-white text-sm sm:text-base">
+                  {totalProducts.toLocaleString('ru-RU')}
+                </div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">в реестре номенклатуры</div>
+              </div>
+
+              <div>
+                <div className="font-mono font-bold text-cyan-300 text-sm sm:text-base">НДС 12%</div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">ЭСФ и закрывающие акты</div>
+              </div>
+
+              <div>
+                <div className="font-mono font-bold text-emerald-400 text-sm sm:text-base">CoA / SDS</div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">паспорта заводов</div>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
-            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 text-left">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Номенклатура
+          {/* Right Column: Clean Architectural Showcase on Navy */}
+          <div className="lg:col-span-5">
+            <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-white/5 backdrop-blur-sm shadow-xl p-1.5">
+              <img 
+                src="/images/hero-lab.jpg" 
+                alt="ChemExpress Laboratory Standards" 
+                className="w-full h-64 sm:h-72 lg:h-80 object-cover rounded-xl"
+              />
+              <div className="mt-2.5 px-3 py-2 flex items-center justify-between text-xs border-t border-white/10 bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
+                  <span className="text-[11px] font-medium">Контроль качества партий</span>
+                </div>
+                <span className="font-mono text-[10px] font-semibold text-white bg-white/10 px-2 py-0.5 rounded border border-white/20">
+                  Сертификаты CoA / SDS
+                </span>
               </div>
-              <div className="text-base font-extrabold font-mono text-slate-900 mt-0.5">
-                {totalProducts.toLocaleString('ru-RU')}
-              </div>
-              <div className="text-[10px] text-slate-500">наименований в базе</div>
-            </div>
-
-            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 text-left">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Складской комплекс
-              </div>
-              <div className="text-base font-extrabold text-slate-900 mt-0.5">
-                Отеген Батыр
-              </div>
-              <div className="text-[10px] text-slate-500">Алматы и регионы РК</div>
-            </div>
-
-            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 text-left col-span-2 sm:col-span-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Документы
-              </div>
-              <div className="text-base font-extrabold text-slate-900 mt-0.5">
-                НДС 12%
-              </div>
-              <div className="text-[10px] text-slate-500">Паспорта CoA / SDS</div>
             </div>
           </div>
 
@@ -304,7 +414,10 @@ export const ProcurementCatalog: React.FC = () => {
             <button
               key={chip.label}
               type="button"
-              onClick={() => setInputVal(chip.q)}
+              onClick={() => {
+                setInputVal(chip.q);
+                setSearchQuery(chip.q);
+              }}
               className="quick-chip"
             >
               {chip.label}
@@ -351,11 +464,15 @@ export const ProcurementCatalog: React.FC = () => {
 
             {/* Warehouse Filter */}
             <div className="flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-slate-400" />
               <span className="text-slate-500 font-medium">Склад:</span>
               <select
                 value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setIsClientFiltering(true);
+                  setSelectedWarehouse(val);
+                  setTimeout(() => setIsClientFiltering(false), 180);
+                }}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-navy-900 cursor-pointer"
               >
                 <option value="all">Все склады РК</option>
@@ -370,7 +487,12 @@ export const ProcurementCatalog: React.FC = () => {
               <input
                 type="checkbox"
                 checked={onlyInStock}
-                onChange={(e) => setOnlyInStock(e.target.checked)}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setIsClientFiltering(true);
+                  setOnlyInStock(val);
+                  setTimeout(() => setIsClientFiltering(false), 180);
+                }}
                 className="rounded border-slate-300 text-navy-900 focus:ring-0 cursor-pointer"
               />
               <span>Только в наличии на складе 1С</span>
@@ -380,25 +502,136 @@ export const ProcurementCatalog: React.FC = () => {
           {/* Reset Filters */}
           <button
             onClick={() => {
+              setIsClientFiltering(true);
               setInputVal('');
               setSearchQuery('');
               setSelectedBrand('all');
               setSelectedWarehouse('all');
               setOnlyInStock(false);
+              setSortField('default');
+              setSortDirection('asc');
+              setTimeout(() => setIsClientFiltering(false), 200);
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Сбросить фильтры</span>
+            <span>Сбросить всё</span>
           </button>
 
         </div>
 
+        {/* Active Filters Pills Strip */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 text-xs animate-in fade-in duration-150">
+            <span className="text-[11px] font-semibold text-slate-400">Применено:</span>
+
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy-50 text-navy-900 border border-navy-200/80 font-medium text-[11px]">
+                <span>Поиск: «{searchQuery}»</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputVal('');
+                    setSearchQuery('');
+                  }}
+                  className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                  title="Удалить поисковый фильтр"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedBrand !== 'all' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy-50 text-navy-900 border border-navy-200/80 font-medium text-[11px]">
+                <span>Бренд: {selectedBrand}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBrand('all')}
+                  className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                  title="Снять фильтр бренда"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedWarehouse !== 'all' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy-50 text-navy-900 border border-navy-200/80 font-medium text-[11px]">
+                <span>Склад: {WAREHOUSES.find(w => w.id === selectedWarehouse)?.name || selectedWarehouse}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedWarehouse('all')}
+                  className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                  title="Снять фильтр склада"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {onlyInStock && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-medium text-[11px]">
+                <span>В наличии на складе 1С</span>
+                <button
+                  type="button"
+                  onClick={() => setOnlyInStock(false)}
+                  className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                  title="Показывать все товары"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {sortField !== 'default' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 font-medium text-[11px]">
+                <span>Сортировка: {sortField === 'price' ? 'По цене' : sortField === 'stock' ? 'По остаткам' : 'По названию'} ({sortDirection === 'asc' ? 'возр.' : 'убыв.'})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortField('default');
+                    setSortDirection('asc');
+                  }}
+                  className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                  title="Сбросить сортировку"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* 3. Professional Data Table */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-card">
+      <div 
+        ref={tableRef} 
+        className={`relative bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-card transition-all duration-200 ${
+          isTableBusy ? 'max-h-[480px]' : ''
+        }`}
+      >
         
+        {/* Loading Overlay when table is busy (filter applying, search debouncing, API fetching) */}
+        {isTableBusy && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] z-30 flex flex-col items-center pt-20 sm:pt-28 cursor-wait select-none transition-all animate-in fade-in duration-150">
+            <div className="sticky top-44 z-40 bg-white border border-slate-200 shadow-elevated rounded-2xl px-6 py-4 flex items-center gap-3.5 max-w-sm mx-auto">
+              <div className="p-2.5 rounded-xl bg-navy-50 text-navy-900 border border-navy-100/80">
+                <Loader2 className="w-5 h-5 text-navy-900 animate-spin" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-900">
+                  Обновление номенклатуры...
+                </div>
+                <div className="text-[11px] text-slate-500 font-medium">
+                  Применение фильтров и актуализация каталога
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Table Header Context Strip */}
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs text-slate-500 font-medium">
           <div className="flex items-center gap-2">
@@ -418,27 +651,72 @@ export const ProcurementCatalog: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className={`overflow-x-auto transition-opacity duration-150 ${isTableBusy ? 'opacity-40 pointer-events-none' : ''}`}>
           <table className="catalog-table">
             <thead>
               <tr>
-                <th className="catalog-th w-44 ">Артикул / CAS</th>
-                <th className="catalog-th min-w-[340px]">
-                  {catalogTab === 'reagents'
-                    ? 'Наименование и формула'
-                    : catalogTab === 'dishware'
-                    ? 'Изделие и параметры'
-                    : 'Наименование продукта'}
+                <th className="catalog-th w-44">Артикул / CAS</th>
+                <th 
+                  className="catalog-th min-w-[340px] cursor-pointer hover:bg-slate-100/80 transition-colors select-none group/th"
+                  onClick={() => handleSort('title')}
+                  title="Сортировать по наименованию"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>
+                      {catalogTab === 'reagents'
+                        ? 'Наименование и формула'
+                        : catalogTab === 'dishware'
+                        ? 'Изделие и параметры'
+                        : 'Наименование продукта'}
+                    </span>
+                    <span className="text-slate-400 group-hover/th:text-slate-700">
+                      {sortField === 'title' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-navy-900" /> : <ArrowDown className="w-3.5 h-3.5 text-navy-900" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-40 group-hover/th:opacity-100" />
+                      )}
+                    </span>
+                  </div>
                 </th>
                 <th className="catalog-th w-32">Бренд / Фасовка</th>
-                <th className="catalog-th w-44">Склад 1С</th>
-                <th className="catalog-th w-36 text-right ">Цена с НДС</th>
+                <th 
+                  className="catalog-th w-44 cursor-pointer hover:bg-slate-100/80 transition-colors select-none group/th"
+                  onClick={() => handleSort('stock')}
+                  title="Сортировать по доступным остаткам"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Склад 1С</span>
+                    <span className="text-slate-400 group-hover/th:text-slate-700">
+                      {sortField === 'stock' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-navy-900" /> : <ArrowDown className="w-3.5 h-3.5 text-navy-900" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-40 group-hover/th:opacity-100" />
+                      )}
+                    </span>
+                  </div>
+                </th>
+                <th 
+                  className="catalog-th w-36 text-right cursor-pointer hover:bg-slate-100/80 transition-colors select-none group/th"
+                  onClick={() => handleSort('price')}
+                  title="Сортировать по цене с НДС"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Цена с НДС</span>
+                    <span className="text-slate-400 group-hover/th:text-slate-700">
+                      {sortField === 'price' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-navy-900" /> : <ArrowDown className="w-3.5 h-3.5 text-navy-900" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-40 group-hover/th:opacity-100" />
+                      )}
+                    </span>
+                  </div>
+                </th>
                 <th className="catalog-th w-56 text-right">Заказ</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredProducts.length === 0 ? (
+              {displayProducts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-slate-400">
                     {isLoading ? (
@@ -455,7 +733,7 @@ export const ProcurementCatalog: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(product => {
+                displayProducts.map(product => {
                   const available = getAvailableStock(product);
                   const totalPhysical = product.stock.reduce((sum, s) => sum + s.physical, 0);
                   const currentQty = getQty(product.id);
@@ -557,18 +835,18 @@ export const ProcurementCatalog: React.FC = () => {
                             {available > 0 ? `В наличии: ${available} шт.` : 'Под заказ (5-10 дн)'}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                        {/* <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
                           Отеген Батыр (Факт: {totalPhysical})
-                        </div>
+                        </div> */}
                       </td>
 
                       {/* 5. Цена с НДС */}
                       <td className="catalog-td text-right">
-                        <div className="font-mono font-extrabold text-slate-900 text-xs">
+                        <div className="font-bold text-slate-900 text-xs tabular-nums">
                           {priceWithVat.toLocaleString('ru-RU')} ₸
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          без НДС {product.computedPrice.toLocaleString('ru-RU')} ₸
+                        <div className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
+                          без НДС {product.computedPrice.toLocaleString('ru-RU')}
                         </div>
                       </td>
 
@@ -616,7 +894,7 @@ export const ProcurementCatalog: React.FC = () => {
         </div>
 
         {/* Pagination Bar */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className={`p-4 border-t border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3 text-xs transition-opacity duration-150 ${isTableBusy ? 'opacity-40 pointer-events-none' : ''}`}>
           <div className="flex items-center gap-2 text-slate-600">
             <span>Показывать по:</span>
             <select
@@ -634,7 +912,10 @@ export const ProcurementCatalog: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => {
+                setCurrentPage(Math.max(1, currentPage - 1));
+                scrollToTableTop();
+              }}
               disabled={currentPage <= 1 || isLoading}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-colors cursor-pointer"
             >
@@ -647,7 +928,10 @@ export const ProcurementCatalog: React.FC = () => {
             </span>
 
             <button
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() => {
+                setCurrentPage(currentPage + 1);
+                scrollToTableTop();
+              }}
               disabled={currentPage >= totalPages || isLoading}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-colors cursor-pointer"
             >
@@ -666,52 +950,6 @@ export const ProcurementCatalog: React.FC = () => {
           product={selectedProduct} 
           onClose={() => setSelectedProduct(null)} 
         />
-      )}
-
-      {/* 5. Floating Bottom Requisition Dock (when items added) */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-3xl px-4 no-print animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-elevated border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-            
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-navy-600 text-white flex items-center justify-center font-bold">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm">Спецификация заявки</span>
-                  <span className="px-2 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 text-[11px] font-mono font-bold border border-cyan-500/30">
-                    {cartCount} поз.
-                  </span>
-                </div>
-                <div className="text-xs text-slate-400 mt-0.5 font-mono">
-                  Сумма с НДС 12%: <strong className="text-white font-extrabold">{cartTotalWithVat.toLocaleString('ru-RU')} ₸</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => openOrderDrawer('quote')}
-                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>КП с печатью</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openOrderDrawer('invoice')}
-                className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-navy-600 hover:bg-navy-500 text-white font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Выписать Счёт 1С</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
-          </div>
-        </div>
       )}
     </>
   );

@@ -7,8 +7,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['Geist', '"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Geist', '"Plus Jakarta Sans"', 'sans-serif'],
+        mono: ['"Geist Mono"', '"Martian Mono"', 'SFMono-Regular', 'Menlo', 'monospace'],
+        'geist-mono': ['"Geist Mono"', 'monospace'],
+        'martian-mono': ['"Martian Mono"', 'monospace'],
       },
       colors: {
         navy: {

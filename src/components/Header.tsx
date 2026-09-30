@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useStore } from '../store/useStore';
 import { 
   Phone, 
@@ -8,8 +8,6 @@ import {
   Clock,
   Mail,
   ArrowLeft,
-  Search,
-  X,
   FlaskConical,
   TestTube2,
   Boxes,
@@ -23,26 +21,9 @@ export const Header: React.FC = () => {
     setCurrentView, 
     catalogTab, 
     setCatalogTab, 
-    searchQuery, 
-    setSearchQuery, 
     cart, 
     openOrderDrawer 
   } = useStore();
-
-  const [headerSearch, setHeaderSearch] = useState(searchQuery);
-
-  // Sync with global store search query
-  useEffect(() => {
-    setHeaderSearch(searchQuery);
-  }, [searchQuery]);
-
-  const handleSearchChange = (val: string) => {
-    setHeaderSearch(val);
-    setSearchQuery(val);
-    if (currentView !== 'catalog') {
-      setCurrentView('catalog');
-    }
-  };
 
   const handleCategoryClick = (tab: 'reagents' | 'dishware' | 'other') => {
     if (currentView !== 'catalog') {
@@ -127,7 +108,7 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Center: Live Catalog Navigation Pills */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shrink-0">
+        <nav className="mr-auto  hidden lg:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shrink-0">
           <button
             type="button"
             onClick={() => handleCategoryClick('reagents')}
@@ -168,25 +149,6 @@ export const Header: React.FC = () => {
           </button>
         </nav>
 
-        {/* Center-Right: Compact Live Search in Header */}
-        <div className="flex-1 max-w-xs md:max-w-sm xl:max-w-md relative hidden md:block">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={headerSearch}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Поиск по CAS, названию или кат. №..."
-            className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-100/90 hover:bg-slate-50 focus:bg-white border border-slate-200/90 rounded-xl outline-none focus:border-navy-900 focus:ring-2 focus:ring-navy-900/10 transition-all font-medium placeholder:text-slate-400"
-          />
-          {headerSearch && (
-            <button
-              onClick={() => handleSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
 
         {/* Right Action Area */}
         <div className="flex items-center gap-2.5 shrink-0">
@@ -219,32 +181,23 @@ export const Header: React.FC = () => {
 
               {/* B2B Cart / Requisition Button */}
               <button
+                type="button"
                 onClick={() => openOrderDrawer('invoice')}
-                className={`inline-flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer select-none active:scale-[0.98] ${
-                  totalCount > 0
-                    ? 'bg-navy-900 hover:bg-navy-800 text-white shadow-navy-900/10'
-                    : 'bg-slate-900 hover:bg-slate-800 text-white'
-                }`}
+                className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl text-xs font-semibold bg-navy-900 hover:bg-navy-800 text-white transition-all shadow-xs cursor-pointer select-none active:scale-[0.98]"
               >
-                <div className="relative">
-                  <ShoppingBag className="w-4 h-4 text-cyan-300" />
-                  {totalCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-extrabold text-[10px] leading-tight shadow-xs">
+                <ShoppingBag className="w-4 h-4 text-white/90 shrink-0" />
+                <span>Спецификация</span>
+
+                {totalCount > 0 && (
+                  <>
+                    <span className="px-1.5 py-0.5 rounded-md bg-white/15 text-white font-mono text-[11px] font-bold leading-none">
                       {totalCount}
                     </span>
-                  )}
-                </div>
-
-                <div className="text-left hidden sm:block">
-                  <div className="leading-tight font-bold">
-                    {totalCount > 0 ? 'Спецификация' : 'Оформить заявку'}
-                  </div>
-                  {totalCount > 0 && (
-                    <div className="text-[10px] font-mono font-medium text-cyan-200 leading-tight">
+                    <span className="hidden sm:inline-block font-mono text-xs text-white/80 border-l border-white/20 pl-2 ml-0.5">
                       {totalWithVat.toLocaleString('ru-RU')} ₸
-                    </div>
-                  )}
-                </div>
+                    </span>
+                  </>
+                )}
               </button>
             </>
           )}

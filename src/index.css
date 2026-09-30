@@ -4,13 +4,21 @@
 
 @layer base {
   html {
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "tnum";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   
   body {
     @apply bg-[#f8fafc] text-slate-900 font-sans antialiased selection:bg-[#103178] selection:text-white;
+  }
+
+  .font-mono {
+    font-family: 'Geist Mono', 'Martian Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  }
+
+  .font-sans {
+    font-family: 'Geist', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
   }
 }
 
