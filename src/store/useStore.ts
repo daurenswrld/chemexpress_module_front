@@ -65,7 +65,11 @@ interface AppState {
   openOrderDrawer: (type?: OrderType) => void;
   closeOrderDrawer: () => void;
 
-  // Orders / 1C Documents
+  // Tax & VAT mode (ИП на ОУР: 'none' = без НДС, 'vat16' = с НДС 16%)
+  vatMode: 'none' | 'vat16';
+  setVatMode: (mode: 'none' | 'vat16') => void;
+
+  // Orders / B2B Documents
   orders: Order[];
   createOrder: (orderData: {
     type: OrderType;
@@ -73,14 +77,16 @@ interface AppState {
     items: OrderItem[];
     clientMessage?: string;
     validDays?: number;
+    vatMode?: 'none' | 'vat16';
   }) => Order;
   updateOrderStatus: (orderId: string, newStatus: Order['status']) => void;
+  toggleOrderManagerConfirmation: (orderId: string) => void;
 
   // Document preview modal
   previewOrder: Order | null;
   setPreviewOrder: (order: Order | null) => void;
 
-  // Stock movements (1C register)
+  // Stock movements
   movements: StockMovement[];
 
   // Toasts
@@ -105,20 +111,17 @@ export const enrichProduct = (raw: ChemProduct, existing?: InventoryItem): Inven
 
   // Generate realistic stock across warehouses based on product ID
   const isSpecial = raw.storage?.includes('2~8') || raw.storage?.includes('−20') || raw.storage?.includes('-20') || raw.title_ru?.includes('ИФА');
-  const isPrecursor = raw.title_ru?.toLowerCase().includes('кислота соляная') || raw.title_ru?.toLowerCase().includes('метанол');
 
   const seed = (raw.id * 13) % 100;
   const centralStock = seed > 20 ? Math.floor(seed / 2) : 0;
   const specStock = isSpecial ? 15 : seed > 50 ? 10 : 0;
-  const precursorStock = isPrecursor ? 40 : 0;
 
   return {
     ...raw,
     computedPrice: price,
     stock: [
-      { warehouseId: 'wh-almaty-central', physical: centralStock, reserved: Math.floor(centralStock * 0.2) },
+      { warehouseId: 'wh-almaty-central', physical: centralStock, reserved: 0 },
       { warehouseId: 'wh-spec-chem', physical: specStock, reserved: 0 },
-      { warehouseId: 'wh-precursors', physical: precursorStock, reserved: isPrecursor ? 10 : 0 },
     ],
   };
 };
@@ -321,11 +324,15 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isOrderDrawerOpen: false });
   },
 
+  vatMode: 'none',
+  setVatMode: (mode) => set({ vatMode: mode }),
+
   orders: [],
 
-  createOrder: ({ type, client, items, clientMessage, validDays = 7 }) => {
+  createOrder: ({ type, client, items, clientMessage, validDays = 5, vatMode }) => {
+    const currentVatMode = vatMode || get().vatMode;
     const subtotal = items.reduce((sum, item) => sum + item.priceKzt * item.quantity, 0);
-    const vat = Math.round(subtotal * 0.12);
+    const vat = currentVatMode === 'vat16' ? Math.round(subtotal * 0.16) : 0;
     const total = subtotal + vat;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -348,44 +355,13 @@ export const useStore = create<AppState>((set, get) => ({
       subtotalKzt: subtotal,
       vatKzt: vat,
       totalKzt: total,
+      vatMode: currentVatMode,
+      isManagerConfirmed: false,
       clientMessage,
     };
 
-    // 1C Reservation logic
-    if (type === 'invoice' || type === 'quote') {
-      const inventoryStore = { ...get().inventoryStore };
-      items.forEach(orderItem => {
-        const prod = inventoryStore[orderItem.productId];
-        if (prod) {
-          prod.stock = prod.stock.map(s => {
-            if (s.warehouseId === orderItem.warehouseId) {
-              return { ...s, reserved: s.reserved + orderItem.quantity };
-            }
-            return s;
-          });
-          inventoryStore[orderItem.productId] = prod;
-
-          // Record movement
-          const mov: StockMovement = {
-            id: `mov-${Date.now()}-${Math.random()}`,
-            timestamp: new Date().toISOString(),
-            type: 'reservation',
-            productId: orderItem.productId,
-            productName: orderItem.name,
-            warehouseId: orderItem.warehouseId,
-            quantity: orderItem.quantity,
-            documentRef: orderNumber,
-            comment: `Резервирование по документу ${orderNumber}`,
-            performedBy: '1C:Автоматический контур',
-          };
-          set(state => ({ movements: [mov, ...state.movements] }));
-        }
-      });
-
-      // Update current products list view
-      const updatedProducts = get().products.map(p => inventoryStore[p.id] || p);
-      set({ inventoryStore, products: updatedProducts });
-    }
+    // Note: Stock reservation is NOT done automatically upon quote/invoice creation,
+    // per client requirement: goods are reserved only after payment or manual confirmation.
 
     set(state => ({
       orders: [newOrder, ...state.orders],
@@ -395,10 +371,30 @@ export const useStore = create<AppState>((set, get) => ({
     get().addToast({
       type: 'success',
       title: type === 'invoice' ? 'Счёт сформирован' : type === 'quote' ? 'КП подготовлено' : 'Запрос отправлен',
-      message: `Документ ${orderNumber} создан. Зафиксирован резерв на складе Chemexpress.`,
+      message: `Документ ${orderNumber} успешно сформирован. Срок действия: ${validDays} дней.`,
     });
 
     return newOrder;
+  },
+
+  toggleOrderManagerConfirmation: (orderId) => {
+    set(state => {
+      const updatedOrders = state.orders.map(o => {
+        if (o.id === orderId) {
+          const isManagerConfirmed = !o.isManagerConfirmed;
+          return {
+            ...o,
+            isManagerConfirmed,
+            status: isManagerConfirmed ? 'reserved' as const : 'quote_sent' as const,
+          };
+        }
+        return o;
+      });
+      const updatedPreview = state.previewOrder?.id === orderId 
+        ? updatedOrders.find(o => o.id === orderId) || null 
+        : state.previewOrder;
+      return { orders: updatedOrders, previewOrder: updatedPreview };
+    });
   },
 
   updateOrderStatus: (orderId, newStatus) => {

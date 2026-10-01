@@ -22,14 +22,13 @@ export interface ChemProduct {
   cat_no?: string;
 }
 
-export type WarehouseId = 'wh-almaty-central' | 'wh-spec-chem' | 'wh-precursors';
+export type WarehouseId = 'wh-almaty-central' | 'wh-spec-chem';
 
 export interface Warehouse {
   id: WarehouseId;
   name: string;
   city: string;
   address: string;
-  isSpecialPermitRequired?: boolean;
 }
 
 export interface StockEntry {
@@ -47,7 +46,7 @@ export type OrderType = 'invoice' | 'quote' | 'request';
 
 export type OrderStatus =
   | 'draft'          // Черновик
-  | 'reserved'       // Зарезервировано в 1С
+  | 'reserved'       // Зарезервировано
   | 'quote_sent'     // КП отправлено
   | 'invoice_issued' // Счет выставлен
   | 'paid'           // Оплачен
@@ -92,6 +91,8 @@ export interface Order {
   subtotalKzt: number;
   vatKzt: number;
   totalKzt: number;
+  vatMode?: 'none' | 'vat16';
+  isManagerConfirmed?: boolean;
   managerComment?: string;
   clientMessage?: string;
   paidAt?: string;

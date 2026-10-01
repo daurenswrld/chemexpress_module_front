@@ -22,7 +22,8 @@ export const Header: React.FC = () => {
     catalogTab, 
     setCatalogTab, 
     cart, 
-    openOrderDrawer 
+    openOrderDrawer,
+    vatMode
   } = useStore();
 
   const handleCategoryClick = (tab: 'reagents' | 'dishware' | 'other') => {
@@ -35,7 +36,7 @@ export const Header: React.FC = () => {
 
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cart.reduce((sum, item) => sum + item.product.computedPrice * item.quantity, 0);
-  const totalWithVat = totalAmount + Math.round(totalAmount * 0.12);
+  const displayTotal = vatMode === 'vat16' ? totalAmount + Math.round(totalAmount * 0.16) : totalAmount;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print transition-all">
@@ -156,7 +157,7 @@ export const Header: React.FC = () => {
           {currentView === 'admin' ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-amber-900 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                Служебный журнал 1С
+                Служебный журнал
               </span>
               <button
                 onClick={() => setCurrentView('catalog')}
@@ -173,7 +174,7 @@ export const Header: React.FC = () => {
                 type="button"
                 onClick={() => openOrderDrawer('quote')}
                 className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                title="Сформировать официальное коммерческое предложение с круглой печатью"
+                title="Сформировать коммерческое предложение"
               >
                 <FileText className="w-3.5 h-3.5 text-navy-800" />
                 <span>Запросить КП</span>
@@ -194,7 +195,7 @@ export const Header: React.FC = () => {
                       {totalCount}
                     </span>
                     <span className="hidden sm:inline-block font-mono text-xs text-white/80 border-l border-white/20 pl-2 ml-0.5">
-                      {totalWithVat.toLocaleString('ru-RU')} ₸
+                      {displayTotal.toLocaleString('ru-RU')} ₸
                     </span>
                   </>
                 )}

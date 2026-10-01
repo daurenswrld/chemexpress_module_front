@@ -12,7 +12,6 @@ import {
   Minus, 
   CheckCircle2, 
   Check, 
-  Lock, 
   ArrowRight, 
   ArrowLeft, 
   Truck, 
@@ -22,8 +21,8 @@ import {
   AlertCircle, 
   Clock,
   Sparkles,
-  ShieldCheck,
-  Download
+  Download,
+  ShieldCheck
 } from 'lucide-react';
 
 export const OrderDrawer: React.FC = () => {
@@ -57,8 +56,9 @@ export const OrderDrawer: React.FC = () => {
   const [bankName, setBankName] = useState('');
 
   const [clientComment, setClientComment] = useState('');
-  const [validDays, setValidDays] = useState(14);
+  const [validDays] = useState(5);
   const [formError, setFormError] = useState<string | null>(null);
+  const { vatMode, setVatMode } = useStore();
 
   // Sync activeTab with orderDrawerType from trigger and reset step to 1
   useEffect(() => {
@@ -99,7 +99,8 @@ export const OrderDrawer: React.FC = () => {
   if (!isOrderDrawerOpen) return null;
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.computedPrice * item.quantity, 0);
-  const vat = Math.round(subtotal * 0.12);
+  const vatRate = vatMode === 'vat16' ? 0.16 : 0;
+  const vat = Math.round(subtotal * vatRate);
   const total = subtotal + vat;
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -204,7 +205,7 @@ export const OrderDrawer: React.FC = () => {
       packaging: item.product.quantity || '1 шт',
       quantity: item.quantity,
       priceKzt: item.product.computedPrice,
-      vatRate: 0.12,
+      vatRate: vatRate,
       warehouseId: item.warehouseId,
     }));
 
@@ -214,6 +215,7 @@ export const OrderDrawer: React.FC = () => {
       items: orderItems,
       clientMessage: clientComment,
       validDays,
+      vatMode,
     });
 
     clearCart();
@@ -224,7 +226,7 @@ export const OrderDrawer: React.FC = () => {
     if (cart.length === 0) return;
 
     // Headers with BOM for proper cyrillic display in Microsoft Excel
-    const headers = [
+    const headers = vatMode === 'vat16' ? [
       '№',
       'Артикул',
       'CAS номер',
@@ -233,18 +235,45 @@ export const OrderDrawer: React.FC = () => {
       'Фасовка',
       'Количество',
       'Цена без НДС (KZT)',
-      'НДС 12% (KZT)',
+      'НДС 16% (KZT)',
       'Цена с НДС (KZT)',
       'Сумма с НДС (KZT)'
+    ] : [
+      '№',
+      'Артикул',
+      'CAS номер',
+      'Наименование товара',
+      'Бренд',
+      'Фасовка',
+      'Количество',
+      'Цена без НДС (KZT)',
+      'НДС',
+      'Сумма (KZT)'
     ];
 
     const rows = cart.map((item, index) => {
       const priceNet = item.product.computedPrice;
-      const vat = Math.round(priceNet * 0.12);
-      const priceWithVat = priceNet + vat;
-      const totalWithVat = priceWithVat * item.quantity;
+      const rowVat = Math.round(priceNet * vatRate);
+      const priceWithVat = priceNet + rowVat;
+      const totalRow = vatMode === 'vat16' ? priceWithVat * item.quantity : priceNet * item.quantity;
       const sanitize = (str: string | undefined | null) => 
         str ? `"${str.replace(/"/g, '""')}"` : '""';
+
+      if (vatMode === 'vat16') {
+        return [
+          index + 1,
+          sanitize(item.product.product_code || `ID-${item.product.id}`),
+          sanitize(item.product.cas_number || 'N/A'),
+          sanitize(item.product.title_ru),
+          sanitize(item.product.brand || 'ChemExpress'),
+          sanitize(item.product.quantity || '1 шт'),
+          item.quantity,
+          priceNet,
+          rowVat,
+          priceWithVat,
+          totalRow
+        ].join(';');
+      }
 
       return [
         index + 1,
@@ -255,9 +284,8 @@ export const OrderDrawer: React.FC = () => {
         sanitize(item.product.quantity || '1 шт'),
         item.quantity,
         priceNet,
-        vat,
-        priceWithVat,
-        totalWithVat
+        'Без НДС',
+        totalRow
       ].join(';');
     });
 
@@ -300,7 +328,6 @@ export const OrderDrawer: React.FC = () => {
               <span>{totalItemsCount} {totalItemsCount === 1 ? 'позиция' : (totalItemsCount > 1 && totalItemsCount < 5) ? 'позиции' : 'позиций'}</span>
               <span className="text-slate-300">•</span>
               <span className="font-mono font-bold text-slate-900">{total.toLocaleString('ru-RU')} ₸</span>
-              <span className="text-[11px] text-slate-400 font-normal">с НДС 12%</span>
             </div>
           </div>
 
@@ -392,15 +419,10 @@ export const OrderDrawer: React.FC = () => {
                         <div className={`p-2 rounded-xl ${activeTab === 'invoice' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
                           <Receipt className="w-4 h-4" />
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                          activeTab === 'invoice' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          1С Склад
-                        </span>
                       </div>
                       <div className="font-bold text-xs text-slate-900">Счёт на оплату</div>
                       <div className="text-[11px] text-slate-500 leading-snug mt-1">
-                        Для бухгалтерии. Бронирует остатки на складе в 1С
+                        Счёт на оплату по выбранным позициям
                       </div>
                     </div>
                   </div>
@@ -419,15 +441,10 @@ export const OrderDrawer: React.FC = () => {
                         <div className={`p-2 rounded-xl ${activeTab === 'quote' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
                           <FileText className="w-4 h-4" />
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                          activeTab === 'quote' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          С печатью
-                        </span>
                       </div>
-                      <div className="font-bold text-xs text-slate-900">Официальное КП</div>
+                      <div className="font-bold text-xs text-slate-900">Коммерческое предложение</div>
                       <div className="text-[11px] text-slate-500 leading-snug mt-1">
-                        С фиксацией цен и круглой печатью для согласования
+                        Автоматически сформированное КП
                       </div>
                     </div>
                   </div>
@@ -446,15 +463,10 @@ export const OrderDrawer: React.FC = () => {
                         <div className={`p-2 rounded-xl ${activeTab === 'request' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
                           <MessageSquare className="w-4 h-4" />
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                          activeTab === 'request' ? 'bg-navy-900 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          Менеджер
-                        </span>
                       </div>
-                      <div className="font-bold text-xs text-slate-900">Запрос в отдел</div>
+                      <div className="font-bold text-xs text-slate-900">Запрос менеджеру</div>
                       <div className="text-[11px] text-slate-500 leading-snug mt-1">
-                        Индивидуальная фасовка, опт, тех. вопросы
+                        Индивидуальная фасовка, оптовый заказ, технические вопросы
                       </div>
                     </div>
                   </div>
@@ -498,7 +510,7 @@ export const OrderDrawer: React.FC = () => {
                   <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
                     {cart.map(item => {
                       const itemTotal = item.product.computedPrice * item.quantity;
-                      const itemTotalWithVat = Math.round(itemTotal * 1.12);
+                      const itemTotalWithVat = vatMode === 'vat16' ? Math.round(itemTotal * 1.16) : itemTotal;
 
                       return (
                         <div 
@@ -512,7 +524,9 @@ export const OrderDrawer: React.FC = () => {
                               </span>
                               {item.product.cas_number && item.product.cas_number !== 'N/A' && (
                                 <span className="font-mono text-[10px] text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded">
-                                  CAS {item.product.cas_number}
+                                  {item.product.cas_number.startsWith('Кат.') || item.product.cas_number.startsWith('Cat.') 
+                                    ? item.product.cas_number 
+                                    : `CAS ${item.product.cas_number}`}
                                 </span>
                               )}
                               {item.product.brand && (
@@ -558,7 +572,9 @@ export const OrderDrawer: React.FC = () => {
                               <div className="font-mono font-bold text-slate-900 text-xs">
                                 {itemTotalWithVat.toLocaleString('ru-RU')} ₸
                               </div>
-                              <div className="text-[9px] text-slate-400 font-mono">с НДС</div>
+                              <div className="text-[9px] text-slate-400 font-mono">
+                                {vatMode === 'vat16' ? 'с НДС 16%' : 'без НДС'}
+                              </div>
                             </div>
 
                             {/* Delete button */}
@@ -582,14 +598,47 @@ export const OrderDrawer: React.FC = () => {
 
             {/* Sticky Step 1 Bottom Bar (Clean Horizontal Layout on Desktop) */}
             <div className="shrink-0 p-5 sm:px-6 bg-white border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="space-y-0.5 text-xs">
+              <div className="space-y-1.5 text-xs">
+                {/* VAT Mode Switch for ИП на ОУР */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 font-medium">Режим НДС (ИП на ОУР):</span>
+                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setVatMode('none')}
+                      className={`px-2.5 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                        vatMode === 'none' ? 'bg-white text-navy-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Без НДС
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVatMode('vat16')}
+                      className={`px-2.5 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                        vatMode === 'vat16' ? 'bg-white text-navy-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      С НДС (16%)
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-3 text-slate-500">
-                  <span>Без НДС: <strong className="text-slate-800 font-semibold tabular-nums">{subtotal.toLocaleString('ru-RU')} ₸</strong></span>
-                  <span className="text-slate-300">•</span>
-                  <span>НДС 12%: <strong className="text-slate-800 font-semibold tabular-nums">{vat.toLocaleString('ru-RU')} ₸</strong></span>
+                  {vatMode === 'vat16' ? (
+                    <>
+                      <span>Без НДС: <strong className="text-slate-800 font-semibold tabular-nums">{subtotal.toLocaleString('ru-RU')} ₸</strong></span>
+                      <span className="text-slate-300">•</span>
+                      <span>НДС 16%: <strong className="text-slate-800 font-semibold tabular-nums">{vat.toLocaleString('ru-RU')} ₸</strong></span>
+                    </>
+                  ) : (
+                    <span>Итого по базовым ценам номенклатуры (без НДС)</span>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-2 pt-0.5">
-                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">Итого с НДС:</span>
+                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                    {vatMode === 'vat16' ? 'Итого с НДС:' : 'Всего к оплате:'}
+                  </span>
                   <span className="text-navy-900 text-xl font-bold tracking-tight tabular-nums">
                     {total.toLocaleString('ru-RU')} ₸
                   </span>
@@ -643,7 +692,7 @@ export const OrderDrawer: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500">Документ на выходе:</span>
                   <strong className="text-navy-900 font-bold">
-                    {activeTab === 'invoice' ? 'Счёт на оплату (1С) с резервированием остатков' : activeTab === 'quote' ? 'Официальное КП с печатью и фиксацией цен' : 'Запрос в отдел продаж'}
+                    {activeTab === 'invoice' ? 'Счёт на оплату по выбранным позициям' : activeTab === 'quote' ? 'Официальное коммерческое предложение' : 'Спецификация заказа'}
                   </strong>
                 </div>
                 <button
@@ -823,29 +872,25 @@ export const OrderDrawer: React.FC = () => {
                 )}
               </div>
 
-              {/* Validity for Quote */}
-              {activeTab === 'quote' && (
-                <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-navy-800" />
-                    <span className="text-slate-700 font-semibold">Срок действия КП:</span>
+              {/* Validity info for Quote and Invoice */}
+              {(activeTab === 'quote' || activeTab === 'invoice') && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-navy-800" />
+                      <span className="text-slate-700 font-semibold">Срок действия документа:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-xs bg-white px-3 py-1 rounded-lg border border-slate-300 text-navy-950">
+                      5 календарных дней
+                    </div>
                   </div>
-                  <div className="flex gap-1.5">
-                    {[7, 14, 30].map(d => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setValidDays(d)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          validDays === d 
-                            ? 'bg-navy-900 text-white shadow-xs font-bold' 
-                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        {d} дней
-                      </button>
-                    ))}
-                  </div>
+
+                  {activeTab === 'invoice' && (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-start gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-navy-800 shrink-0 mt-0.5" />
+                      <span>Выставление счёта не означает автоматический резерв товара. Резервирование позиций осуществляется после поступления оплаты на расчётный счёт.</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -923,21 +968,23 @@ export const OrderDrawer: React.FC = () => {
               <div className="space-y-0.5 text-xs">
                 <div className="text-slate-500">
                   {activeTab === 'invoice' ? (
-                    <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-emerald-600" />
-                      С фиксацией брони в 1С
+                    <span className="text-slate-700 font-medium inline-flex items-center gap-1">
+                      <Receipt className="w-3 h-3 text-navy-800" />
+                      Счёт на оплату
                     </span>
                   ) : activeTab === 'quote' ? (
-                    <span className="text-navy-900 font-semibold inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-navy-800" />
-                      С круглой печатью ChemExpress
+                    <span className="text-navy-900 font-medium inline-flex items-center gap-1">
+                      <FileText className="w-3 h-3 text-navy-800" />
+                      Предварительное коммерческое предложение
                     </span>
                   ) : (
                     <span>Заявка менеджеру</span>
                   )}
                 </div>
                 <div className="flex items-baseline gap-2 pt-0.5">
-                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">Всего к оплате:</span>
+                  <span className="text-slate-900 font-bold text-xs uppercase tracking-wide">
+                    {vatMode === 'vat16' ? 'Всего к оплате (с НДС 16%):' : 'Всего к оплате (без НДС):'}
+                  </span>
                   <span className="text-navy-900 text-xl font-bold tracking-tight tabular-nums">
                     {total.toLocaleString('ru-RU')} ₸
                   </span>
@@ -951,10 +998,10 @@ export const OrderDrawer: React.FC = () => {
               >
                 <span>
                   {activeTab === 'invoice'
-                    ? 'Сформировать счёт на оплату (1С)'
+                    ? 'Сформировать счёт на оплату'
                     : activeTab === 'quote'
-                    ? 'Сформировать официальное КП с печатью'
-                    : 'Отправить заявку в отдел продаж'}
+                    ? 'Сформировать коммерческое предложение'
+                    : 'Отправить заявку менеджеру'}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </button>

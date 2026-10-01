@@ -5,9 +5,9 @@ import {
   Mail, 
   Clock, 
   Heart, 
-  Layers,
   FileText,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
 import { useStore } from '../store/useStore';
@@ -20,7 +20,22 @@ export const Footer: React.FC = () => {
     setCatalogTab(tab);
     if (search !== undefined) setSearchQuery(search);
     if (brand !== 'all') setSelectedBrand(brand);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Smooth scroll down to the table (with sticky navbar offset)
+    setTimeout(() => {
+      const tableEl = document.getElementById('catalog-table');
+      if (tableEl) {
+        const navOffset = 90; // sticky header height + breathing room
+        const elementPosition = tableEl.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - navOffset;
+        window.scrollTo({
+          top: Math.max(0, offsetPosition),
+          behavior: 'smooth',
+        });
+      } else {
+        window.scrollTo({ top: 480, behavior: 'smooth' });
+      }
+    }, 60);
   };
 
   return (
@@ -51,20 +66,20 @@ export const Footer: React.FC = () => {
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              {/* Claude-style Live Status Capsule */}
+              {/* Live Catalog Status Capsule */}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-navy-900/90 border border-navy-700/80 text-slate-200 text-xs font-medium">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                 </span>
-                <span>Шлюз 1С:Предприятие 8.3 — Каталог активен</span>
+                <span>Каталог реактивов и стандартов активен</span>
               </div>
 
               <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 px-3 py-1.5 rounded-full bg-navy-900/60 border border-navy-800">
                 <span>БИН</span>
                 <strong className="text-slate-200 font-semibold font-mono tracking-wide">{COMPANY_SELLER_DETAILS.bin}</strong>
                 <span className="text-navy-600">•</span>
-                <span className="text-blue-300 font-medium">НДС 12%</span>
+                <span className="text-blue-300 font-medium">{COMPANY_SELLER_DETAILS.name}</span>
               </div>
             </div>
           </div>
@@ -136,19 +151,10 @@ export const Footer: React.FC = () => {
                   <span>ИФА тест-системы</span>
                 </button>
               </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => handleNav('reagents', 'соляная')}
-                  className="text-slate-400 hover:text-white transition-colors text-left cursor-pointer flex items-center group"
-                >
-                  <span>Прекурсоры МВД РК</span>
-                </button>
-              </li>
             </ul>
           </div>
 
-          {/* Column 2: Документооборот 1С */}
+          {/* Column 2: Документооборот B2B */}
           <div className="space-y-4">
             <h4 className="text-xs font-semibold text-white tracking-wider uppercase">
               Документы B2B
@@ -160,7 +166,7 @@ export const Footer: React.FC = () => {
                   onClick={() => openOrderDrawer('invoice')}
                   className="text-slate-400 hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  Счёт на оплату с НДС 12%
+                  Счёт на оплату
                 </button>
               </li>
               <li>
@@ -169,31 +175,18 @@ export const Footer: React.FC = () => {
                   onClick={() => openOrderDrawer('quote')}
                   className="text-slate-400 hover:text-white transition-colors text-left cursor-pointer"
                 >
-                  Официальное коммерческое КП
+                  Официальное коммерческое предложение
                 </button>
               </li>
               <li>
-                <span className="text-slate-500">
-                  Паспорта качества CoA и SDS
+                <span className="text-slate-400">
+                  CoA и SDS — при наличии у производителя
                 </span>
               </li>
               <li>
-                <span className="text-slate-500">
-                  ЭСФ и сопроводительные СНТ
+                <span className="text-slate-400">
+                  ЭСФ и сопроводительные документы — в предусмотренных законодательством случаях
                 </span>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentView('admin');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors text-left inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Layers className="w-3.5 h-3.5 text-slate-500" />
-                  <span>АРМ Склад 1С</span>
-                </button>
               </li>
             </ul>
           </div>
@@ -245,7 +238,16 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Claude-style Minimal Bottom Bar */}
+        {/* Official Precursor Disclaimer Banner */}
+        <div className="py-4 px-5 rounded-2xl bg-navy-950/90 border border-amber-500/20 text-[12px] sm:text-[13px] text-slate-300 leading-relaxed mb-8 flex items-start gap-3.5 shadow-xs">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <p>
+            <strong className="text-amber-300 font-semibold">Важное уведомление: </strong>
+            ChemExpress не осуществляет реализацию прекурсоров, ядов и товаров двойного назначения, подлежащих специальному государственному контролю и/или лицензированию в Республике Казахстан. Оборот прекурсоров без лицензии — карается уголовным кодексом РК.
+          </p>
+        </div>
+
+        {/* 3. Minimal Bottom Bar */}
         <div className="pt-8 border-t border-navy-800/70 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span>© 2026 {COMPANY_SELLER_DETAILS.name}. B2B Реестр поставок.</span>

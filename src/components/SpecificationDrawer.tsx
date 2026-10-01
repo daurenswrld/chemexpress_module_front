@@ -91,13 +91,13 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
         ? `SDS_${product.cas_number || product.id}_Паспорт_Безопасности.txt`
         : `CoA_${product.cas_number || product.id}_Сертификат_Анализа.txt`;
       
-      const docContent = `ТОО «ChemExpress» — Официальный реестр B2B поставок\n`
+      const docContent = `ИП «ChemExpress» — Официальный реестр B2B поставок\n`
         + `ДОКУМЕНТ: ${type === 'sds' ? 'ПАСПОРТ БЕЗОПАСНОСТИ ВЕЩЕСТВА (SDS)' : 'СЕРТИФИКАТ АНАЛИЗА ПАРТИИ (CoA)'}\n`
         + `--------------------------------------------------------\n`
         + `Наименование: ${product.title_ru}\n`
         + `International Name: ${product.title_en || '—'}\n`
         + `CAS Регистрационный номер: ${product.cas_number || '—'}\n`
-        + `Артикул 1С: ${product.product_code || `SKU-${product.id}`}\n`
+        + `Артикул (SKU): ${product.product_code || `SKU-${product.id}`}\n`
         + `Квалификация: ${product.purity || 'ЧДА'}\n`
         + `Химическая формула: ${product.molecular_formula || '—'}\n`
         + `Молекулярная масса: ${product.molecular_weight || '—'} г/моль\n`
@@ -123,9 +123,11 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
   const totalPhysical = product.stock.reduce((sum, s) => sum + s.physical, 0);
   const totalReserved = product.stock.reduce((sum, s) => sum + s.reserved, 0);
   const totalAvailable = Math.max(0, totalPhysical - totalReserved);
-  const priceWithVat = Math.round(product.computedPrice * 1.12);
+  const { vatMode } = useStore();
+  const vatRate = vatMode === 'vat16' ? 0.16 : 0;
   const lineTotal = product.computedPrice * qty;
-  const lineTotalWithVat = priceWithVat * qty;
+  const lineVat = Math.round(lineTotal * vatRate);
+  const lineTotalWithVat = lineTotal + lineVat;
 
   const handleAddToCart = () => {
     addToCart(product, qty);
@@ -399,7 +401,7 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-navy-900" />
-                    <span>Складской терминал 1С (Казахстан)</span>
+                    <span>Складские терминалы (Казахстан)</span>
                   </div>
                   <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 tabular-nums">
                     Свободный остаток: {totalAvailable} шт
@@ -436,7 +438,7 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                               )}
                             </div>
                             <div className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
-                              Физический: {stockItem.physical} • Резерв 1С: {stockItem.reserved}
+                              Физический: {stockItem.physical} • В резерве: {stockItem.reserved}
                             </div>
                           </div>
                         </div>
@@ -467,12 +469,16 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
           {/* Price Summary */}
           <div className="flex items-baseline gap-4">
             <div>
-              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Цена с НДС 12%:</div>
+              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                {vatMode === 'vat16' ? 'Цена с НДС 16%:' : 'Базовая цена (без НДС):'}
+              </div>
               <div className="text-xl sm:text-2xl font-bold text-navy-900 tabular-nums tracking-tight">
                 {lineTotalWithVat.toLocaleString('ru-RU')} ₸
               </div>
               <div className="text-[11px] text-slate-500 tabular-nums">
-                без НДС: {lineTotal.toLocaleString('ru-RU')} ₸ ({priceWithVat.toLocaleString('ru-RU')} ₸/ед)
+                {vatMode === 'vat16' 
+                  ? `без НДС: ${lineTotal.toLocaleString('ru-RU')} ₸ (НДС 16%: ${lineVat.toLocaleString('ru-RU')} ₸)`
+                  : `${product.computedPrice.toLocaleString('ru-RU')} ₸ / ед • Без НДС (ИП на ОУР)`}
               </div>
             </div>
           </div>
@@ -519,8 +525,8 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
               className="py-2.5 px-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200/90 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5"
             >
               <Receipt className="w-3.5 h-3.5 text-navy-900" />
-              <span className="hidden sm:inline">Выписать счёт 1С</span>
-              <span className="sm:hidden">Счёт 1С</span>
+              <span className="hidden sm:inline">Выписать счёт на оплату</span>
+              <span className="sm:hidden">Счёт на оплату</span>
             </button>
           </div>
 

@@ -13,19 +13,12 @@ export const WAREHOUSES: Warehouse[] = [
     city: 'Алматы',
     address: 'Илийский район, терминал ChemExpress 4B',
   },
-  {
-    id: 'wh-precursors',
-    name: 'Склад прекурсоров (Спецучёт МВД РК)',
-    city: 'Алматы',
-    address: 'Зона лицензионного хранения химвеществ',
-    isSpecialPermitRequired: true,
-  },
 ];
 
 export const COMPANY_SELLER_DETAILS = {
-  name: 'ТОО "Chemexpress"',
+  name: 'ИП «ChemExpress»',
   bin: '230740019280',
-  kbe: '17',
+  kbe: '19',
   iik: 'KZ886010002001122334',
   bik: 'HSBKKZKX',
   bankName: 'АО "Народный Банк Казахстана" (Halyk Bank)',
@@ -33,8 +26,10 @@ export const COMPANY_SELLER_DETAILS = {
   phone: '+7 (707) 282-80-30',
   email: 'info@chemexpress.kz',
   website: 'www.chemexpress.kz',
+  directorTitle: 'Индивидуальный предприниматель',
   directorName: 'Искаков Е. М.',
-  chiefAccountantName: 'Жусупова А. С.',
+  chiefAccountantName: 'Не предусмотрен',
+  taxRegime: 'ОУР (Общеустановленный режим налогообложения)',
 };
 
 // Initial seeded items from official live chemexpress.kz database
@@ -161,22 +156,5 @@ export const INITIAL_FALLBACK_PRODUCTS: ChemProduct[] = [
     stock_qty: 90,
     price: 42000,
     main_image_url: 'https://chemexpress.kz/media/products/30416/fd128fe4-fb75-4e21-b6cf-49983a2a06b9_D451410.png',
-  },
-  {
-    id: 88193,
-    title_ru: 'Кислота соляная 37% ЧДА (Прекурсор)',
-    title_en: 'Hydrochloric acid 37% analytical grade',
-    product_code: 'MKL-H811210-1L',
-    cas_number: '7647-01-0',
-    purity: '37.0 - 38.0%',
-    storage: 'Хранить в вентилируемом шкафу',
-    molecular_formula: 'HCl',
-    molecular_weight: 36.46,
-    density: '1.19',
-    quantity: '1.0L',
-    brand: 'Macklin',
-    in_stock: true,
-    stock_qty: 120,
-    price: 5200,
   },
 ];

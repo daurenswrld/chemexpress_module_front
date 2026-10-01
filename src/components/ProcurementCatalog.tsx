@@ -52,6 +52,8 @@ export const ProcurementCatalog: React.FC = () => {
     addToCart,
     getAvailableStock,
     openOrderDrawer,
+    vatMode,
+    setVatMode,
   } = useStore();
 
   const [inputVal, setInputVal] = useState(searchQuery);
@@ -199,9 +201,9 @@ export const ProcurementCatalog: React.FC = () => {
             {/* Metadata Eyebrow */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-medium text-slate-200">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-semibold text-white">ТОО «ChemExpress»</span>
+              <span className="font-semibold text-white">ИП «ChemExpress»</span>
               <span className="text-white/30">•</span>
-              <span className="font-mono text-[11px] text-cyan-300">1С:Предприятие • Резервы Онлайн</span>
+              <span className="font-mono text-[11px] text-cyan-300">Официальный B2B реестр</span>
             </div>
 
             {/* Headline with quiet confidence */}
@@ -211,7 +213,7 @@ export const ProcurementCatalog: React.FC = () => {
 
             {/* Editorial Description */}
             <p className="text-slate-300 text-xs sm:text-[14px] leading-relaxed max-w-xl font-normal">
-              Официальные прямые поставки аналитических стандартов, чистых реактивов (TCI, Macklin, BSY) и лабораторного стекла Synthware со склада в Алматы. Поставки по контрактам с юридическими лицами Республики Казахстан с НДС 12%.
+              Официальные прямые поставки аналитических стандартов, чистых реактивов (TCI, Macklin, BSY) и лабораторного стекла Synthware со склада в Алматы. Поставки по контрактам с юридическими лицами Республики Казахстан с полным пакетом закрывающих документов.
             </p>
 
             {/* Minimalist Action Buttons */}
@@ -222,7 +224,7 @@ export const ProcurementCatalog: React.FC = () => {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-navy-950 font-bold text-xs sm:text-sm transition-all cursor-pointer select-none active:scale-[0.98] shadow-sm"
               >
                 <FileText className="w-4 h-4 text-navy-950" />
-                <span>Запросить официальное КП</span>
+                <span>Запросить КП</span>
                 <ArrowRight className="w-3.5 h-3.5 text-navy-800" />
               </button>
 
@@ -232,7 +234,7 @@ export const ProcurementCatalog: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs sm:text-sm border border-white/15 backdrop-blur-sm transition-all cursor-pointer select-none active:scale-[0.98]"
               >
                 <Receipt className="w-4 h-4 text-cyan-300" />
-                <span>Счёт на оплату 1С</span>
+                <span>Счёт на оплату</span>
               </button>
             </div>
 
@@ -246,8 +248,8 @@ export const ProcurementCatalog: React.FC = () => {
               </div>
 
               <div>
-                <div className="font-mono font-bold text-cyan-300 text-sm sm:text-base">НДС 12%</div>
-                <div className="text-[11px] text-slate-300 font-medium mt-0.5">ЭСФ и закрывающие акты</div>
+                <div className="font-mono font-bold text-cyan-300 text-sm sm:text-base">ЭСФ / Документы</div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">Полный пакет закрывающих документов</div>
               </div>
 
               <div>
@@ -385,7 +387,7 @@ export const ProcurementCatalog: React.FC = () => {
             ? [
                 { label: 'CAS 78-27-3', q: '78-27-3' },
                 { label: 'Ацетонитрил HPLC', q: 'Ацетонитрил' },
-                { label: 'Соляная кислота', q: 'соляная' },
+                { label: 'Изопропанол HPLC', q: 'изопропанол' },
                 { label: 'TCI Реактивы', q: 'TCI' },
                 { label: 'Macklin', q: 'Macklin' },
                 { label: 'BSY / ELK', q: 'BSY' },
@@ -491,8 +493,39 @@ export const ProcurementCatalog: React.FC = () => {
                 }}
                 className="rounded border-slate-300 text-navy-900 focus:ring-0 cursor-pointer"
               />
-              <span>Только в наличии на складе 1С</span>
+              <span>Только в наличии на складе</span>
             </label>
+
+            {/* Option 1: Tax / VAT Mode Switcher in Catalog Toolbar */}
+            <div className="flex items-center gap-1.5 pl-2 sm:border-l sm:border-slate-200">
+              <span className="text-slate-500 font-medium">НДС:</span>
+              <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setVatMode('none')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    vatMode === 'none'
+                      ? 'bg-white text-navy-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Режим без НДС (ИП на ОУР)"
+                >
+                  Без НДС
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVatMode('vat16')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    vatMode === 'vat16'
+                      ? 'bg-navy-900 text-white shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Режим с НДС 16% (ставка РК 2026)"
+                >
+                  С НДС (16%)
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Reset Filters */}
@@ -568,7 +601,7 @@ export const ProcurementCatalog: React.FC = () => {
 
             {onlyInStock && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-medium text-[11px]">
-                <span>В наличии на складе 1С</span>
+                <span>В наличии на складе</span>
                 <button
                   type="button"
                   onClick={() => setOnlyInStock(false)}
@@ -604,6 +637,7 @@ export const ProcurementCatalog: React.FC = () => {
       {/* 3. Professional Data Table */}
       <div 
         ref={tableRef} 
+        id="catalog-table"
         className={`relative bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-card transition-all duration-200 ${
           isTableBusy ? 'max-h-[480px]' : ''
         }`}
@@ -681,7 +715,7 @@ export const ProcurementCatalog: React.FC = () => {
                   title="Сортировать по доступным остаткам"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>Склад 1С</span>
+                    <span>Наличие / Склад</span>
                     <span className="text-slate-400 group-hover/th:text-slate-700">
                       {sortField === 'stock' ? (
                         sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-navy-900" /> : <ArrowDown className="w-3.5 h-3.5 text-navy-900" />
@@ -694,10 +728,10 @@ export const ProcurementCatalog: React.FC = () => {
                 <th 
                   className="catalog-th w-36 text-right cursor-pointer hover:bg-slate-100/80 transition-colors select-none group/th"
                   onClick={() => handleSort('price')}
-                  title="Сортировать по цене с НДС"
+                  title={vatMode === 'vat16' ? 'Сортировать по цене с НДС 16%' : 'Сортировать по цене без НДС'}
                 >
                   <div className="flex items-center justify-end gap-1.5">
-                    <span>Цена с НДС</span>
+                    <span>{vatMode === 'vat16' ? 'Цена с НДС (16%)' : 'Цена без НДС'}</span>
                     <span className="text-slate-400 group-hover/th:text-slate-700">
                       {sortField === 'price' ? (
                         sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-navy-900" /> : <ArrowDown className="w-3.5 h-3.5 text-navy-900" />
@@ -732,7 +766,9 @@ export const ProcurementCatalog: React.FC = () => {
                 displayProducts.map(product => {
                   const available = getAvailableStock(product);
                   const currentQty = getQty(product.id);
-                  const priceWithVat = Math.round(product.computedPrice * 1.12);
+                  const displayPrice = vatMode === 'vat16' 
+                    ? Math.round(product.computedPrice * 1.16) 
+                    : product.computedPrice;
 
                   return (
                     <tr 
@@ -826,7 +862,7 @@ export const ProcurementCatalog: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* 4. Склад 1С */}
+                      {/* 4. Склад и наличие */}
                       <td className="catalog-td">
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${available > 0 ? 'bg-emerald-500' : 'bg-amber-500'} shrink-0`} />
@@ -839,13 +875,15 @@ export const ProcurementCatalog: React.FC = () => {
                         </div> */}
                       </td>
 
-                      {/* 5. Цена с НДС */}
+                      {/* 5. Цена */}
                       <td className="catalog-td text-right">
                         <div className="font-bold text-slate-900 text-xs tabular-nums">
-                          {priceWithVat.toLocaleString('ru-RU')} ₸
+                          {displayPrice.toLocaleString('ru-RU')} ₸
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
-                          без НДС {product.computedPrice.toLocaleString('ru-RU')}
+                          {vatMode === 'vat16' 
+                            ? `без НДС ${product.computedPrice.toLocaleString('ru-RU')} ₸` 
+                            : 'без НДС (0%)'}
                         </div>
                       </td>
 

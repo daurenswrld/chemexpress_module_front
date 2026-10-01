@@ -164,18 +164,104 @@
 
 /* Print Styles for A4 invoices and commercial offers */
 @media print {
-  body {
+  /* 1. Global Reset: Remove all margins, overflow, background colors */
+  html, body, #root, #root > div {
     background: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
   }
-  .no-print {
+
+  /* 2. Hide all non-printable application elements */
+  .no-print, 
+  header, 
+  main, 
+  footer,
+  #root > div > *:not(.print-document-modal) {
     display: none !important;
   }
+
+  /* 3. Outer modal wrapper: purely transparent, static flow */
+  .print-document-modal {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* 4. Inner container: strictly eliminate shadow-2xl, border-gray-200, rounded-xl */
+  .print-document-container,
+  .print-document-modal > div {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    filter: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  /* 5. Printable A4 Sheet: clean white, zero shadow, zero border, zero scroll */
+  #print-document-sheet,
+  .print-document-sheet {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    filter: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 6. Avoid breaking inside tables, rows, signature blocks */
+  table, tr, td, th {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   .print-only {
     display: block !important;
   }
+
   @page {
-    size: A4;
-    margin: 10mm 12mm;
+    size: A4 portrait;
+    margin: 8mm 10mm;
   }
 }

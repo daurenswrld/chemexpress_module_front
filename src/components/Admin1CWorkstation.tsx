@@ -22,6 +22,7 @@ export const Admin1CWorkstation: React.FC = () => {
     products,
     movements,
     updateOrderStatus,
+    toggleOrderManagerConfirmation,
     setPreviewOrder,
     addToast,
   } = useStore();
@@ -233,7 +234,7 @@ export const Admin1CWorkstation: React.FC = () => {
                 type="text"
                 value={orderSearch}
                 onChange={(e) => setOrderSearch(e.target.value)}
-                placeholder="Поиск по номеру счета, ТОО или БИН..."
+                placeholder="Поиск по номеру счета, организации или БИН..."
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg outline-none focus:border-cyan-600"
               />
             </div>
@@ -246,7 +247,7 @@ export const Admin1CWorkstation: React.FC = () => {
                 className="px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg outline-none"
               >
                 <option value="all">Все документы</option>
-                <option value="invoice_issued">Счёт выставлен (Резерв)</option>
+                <option value="invoice_issued">Счёт выставлен</option>
                 <option value="quote_sent">КП отправлено</option>
                 <option value="paid">Оплачен</option>
                 <option value="shipped">Отгружен</option>
@@ -263,9 +264,9 @@ export const Admin1CWorkstation: React.FC = () => {
                   <th className="p-3 w-28">Дата</th>
                   <th className="p-3">Контрагент / БИН</th>
                   <th className="p-3 w-28 text-right font-mono">Без НДС</th>
-                  <th className="p-3 w-28 text-right font-mono">НДС 12%</th>
+                  <th className="p-3 w-28 text-right font-mono">НДС</th>
                   <th className="p-3 w-32 text-right font-mono">Итого, ₸</th>
-                  <th className="p-3 w-48">Статус в 1С</th>
+                  <th className="p-3 w-48">Статус</th>
                   <th className="p-3 w-44 text-right">Действия</th>
                 </tr>
               </thead>
@@ -309,8 +310,20 @@ export const Admin1CWorkstation: React.FC = () => {
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => toggleOrderManagerConfirmation(order.id)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              order.isManagerConfirmed
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                            }`}
+                            title="Переключить подтверждение РОП/менеджером"
+                          >
+                            {order.isManagerConfirmed ? 'Подтверждено РОП' : 'Предварительное'}
+                          </button>
+
+                          <button
                             onClick={() => setPreviewOrder(order)}
-                            className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                            className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
                             title="Открыть печатную форму счета (А4 / Печать)"
                           >
                             <Eye className="w-4 h-4" />
