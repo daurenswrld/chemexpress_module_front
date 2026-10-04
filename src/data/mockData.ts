@@ -1,4 +1,61 @@
-import type { Warehouse, ChemProduct } from '../types';
+import type { Warehouse, ChemProduct, OrganizationEntity, UserAccount } from '../types';
+
+export const DEFAULT_ORGANIZATIONS: OrganizationEntity[] = [
+  {
+    bin: '080140012345',
+    companyName: 'ТОО "КазХимСинтез"',
+    kbe: '17',
+    iik: 'KZ456010002003456789',
+    bik: 'HSBKKZKX',
+    bankName: 'АО "Народный Банк Казахстана"',
+    legalAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
+    deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1, Склад №2',
+    memberUserIds: ['usr-client-1', 'usr-client-2'],
+    createdAt: '2026-01-15T09:00:00.000Z',
+  },
+  {
+    bin: '140540023456',
+    companyName: 'ТОО "ЛабФарм Трейд"',
+    kbe: '17',
+    iik: 'KZ897050001004567123',
+    bik: 'CASPKZKA',
+    bankName: 'АО "Kaspi Bank"',
+    legalAddress: 'г. Астана, ул. Достык, 18, БЦ "Москва"',
+    deliveryAddress: 'г. Астана, ул. Достык, 18, офис 402',
+    memberUserIds: ['usr-client-3'],
+    createdAt: '2026-02-10T11:30:00.000Z',
+  },
+];
+
+export const DEFAULT_USERS: UserAccount[] = [
+  {
+    id: 'usr-client-1',
+    fullName: 'Алексей Бережной',
+    email: 'a.berezhnoy@kazchimsynthez.kz',
+    phone: '+7 (701) 450-89-22',
+    roleInOrg: 'procurement',
+    organizationBin: '080140012345',
+    createdAt: '2026-01-15T09:10:00.000Z',
+  },
+  {
+    id: 'usr-client-2',
+    fullName: 'Гульнара Исаева',
+    email: 'g.isaeva@kazchimsynthez.kz',
+    phone: '+7 (701) 450-89-23',
+    roleInOrg: 'accountant',
+    organizationBin: '080140012345',
+    createdAt: '2026-01-16T14:20:00.000Z',
+  },
+  {
+    id: 'usr-client-3',
+    fullName: 'Динара Серикова',
+    email: 'orders@labpharm.kz',
+    phone: '+7 (777) 321-44-55',
+    roleInOrg: 'owner',
+    organizationBin: '140540023456',
+    createdAt: '2026-02-10T11:45:00.000Z',
+  },
+];
 
 export const WAREHOUSES: Warehouse[] = [
   {
@@ -18,6 +75,7 @@ export const WAREHOUSES: Warehouse[] = [
 export const COMPANY_SELLER_DETAILS = {
   name: 'ИП «ChemExpress»',
   bin: '230740019280',
+  oked: '46909',
   kbe: '19',
   iik: 'KZ886010002001122334',
   bik: 'HSBKKZKX',
@@ -30,6 +88,7 @@ export const COMPANY_SELLER_DETAILS = {
   directorName: 'Искаков Е. М.',
   chiefAccountantName: 'Не предусмотрен',
   taxRegime: 'ОУР (Общеустановленный режим налогообложения)',
+  slogan: 'Прямые поставки от мировых производителей • Гарантия чистоты и оперативная логистика',
 };
 
 // Initial seeded items from official live chemexpress.kz database

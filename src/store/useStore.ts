@@ -7,9 +7,17 @@ import type {
   WarehouseId, 
   OrderType, 
   StockMovement, 
-  ClientEntity 
+  ClientEntity,
+  OrganizationEntity,
+  UserAccount,
+  RegisterUserData,
+  StaffUser
 } from '../types';
-import { INITIAL_FALLBACK_PRODUCTS } from '../data/mockData';
+import { 
+  INITIAL_FALLBACK_PRODUCTS,
+  DEFAULT_ORGANIZATIONS,
+  DEFAULT_USERS
+} from '../data/mockData';
 
 export interface CartItem {
   product: InventoryItem;
@@ -21,12 +29,20 @@ export interface ToastMessage {
   id: string;
   type: 'success' | 'info' | 'warning' | 'error';
   title: string;
-  message: string;
+  message?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  duration?: number;
 }
 
 interface AppState {
-  currentView: 'catalog' | 'admin';
-  setCurrentView: (view: 'catalog' | 'admin') => void;
+  currentView: 'catalog' | 'manager' | 'admin' | 'login';
+  setCurrentView: (view: 'catalog' | 'manager' | 'admin' | 'login') => void;
+
+  // Staff (Manager / Admin) Authentication
+  staffUser: StaffUser | null;
+  loginStaff: (email: string, pass: string) => { success: boolean; error?: string };
+  logoutStaff: () => void;
 
   // Live API Products
   catalogTab: 'reagents' | 'dishware' | 'other';
@@ -81,10 +97,25 @@ interface AppState {
   }) => Order;
   updateOrderStatus: (orderId: string, newStatus: Order['status']) => void;
   toggleOrderManagerConfirmation: (orderId: string) => void;
+  confirmOrderByManager: (
+    orderId: string,
+    details?: {
+      deliveryAddress?: string;
+      deliveryCity?: string;
+      deliveryDays?: string;
+      deliveryCostKzt?: number;
+      managerComment?: string;
+    }
+  ) => void;
 
   // Document preview modal
   previewOrder: Order | null;
   setPreviewOrder: (order: Order | null) => void;
+
+  // My Documents modal (client history)
+  isMyDocumentsOpen: boolean;
+  openMyDocuments: () => void;
+  closeMyDocuments: () => void;
 
   // Stock movements
   movements: StockMovement[];
@@ -93,6 +124,24 @@ interface AppState {
   toasts: ToastMessage[];
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
+
+  // Auth & Multi-User Organization by BIN
+  currentUser: UserAccount | null;
+  currentOrganization: OrganizationEntity | null;
+  users: UserAccount[];
+  organizations: OrganizationEntity[];
+  isAuthModalOpen: boolean;
+  authModalMode: 'login' | 'register';
+  authCallbackAction: (() => void) | null;
+  isOrgProfileModalOpen: boolean;
+
+  login: (email: string) => boolean;
+  register: (data: RegisterUserData) => boolean;
+  logout: () => void;
+  openAuthModal: (mode?: 'login' | 'register', onComplete?: () => void) => void;
+  closeAuthModal: () => void;
+  openOrgProfileModal: () => void;
+  closeOrgProfileModal: () => void;
 
   // Helpers
   getAvailableStock: (product: InventoryItem, warehouseId?: WarehouseId) => number;
@@ -141,9 +190,378 @@ export const getInitialCatalogTab = (): 'reagents' | 'dishware' | 'other' => {
   return 'reagents';
 };
 
+export const DEFAULT_STAFF_ACCOUNTS: Array<StaffUser & { password: string }> = [
+  {
+    id: 'staff-mgr-1',
+    fullName: 'Айгерим Касымова',
+    email: 'manager@chemexpress.kz',
+    role: 'manager',
+    password: 'manager2026',
+  },
+  {
+    id: 'staff-adm-1',
+    fullName: 'Алдияр Кабдешев',
+    email: 'admin@chemexpress.kz',
+    role: 'admin',
+    password: 'admin2026',
+  },
+];
+
+const loadSavedStaffUser = (): StaffUser | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('chemexpress_staff_user');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+  return null;
+};
+
+const saveStaffUserToStorage = (user: StaffUser | null) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem('chemexpress_staff_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('chemexpress_staff_user');
+    }
+  } catch (e) {
+    // ignore
+  }
+};
+
+export const getInitialView = (): 'catalog' | 'manager' | 'admin' | 'login' => {
+  if (typeof window === 'undefined') return 'catalog';
+  const path = window.location.pathname.toLowerCase().replace(/\/$/, '');
+  const params = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.toLowerCase();
+
+  const isLoginSlug = 
+    path === '/login' ||
+    path.startsWith('/login') ||
+    params.get('view') === 'login' ||
+    params.has('login') ||
+    hash === '#login';
+
+  if (isLoginSlug) {
+    return 'login';
+  }
+
+  const staff = loadSavedStaffUser();
+
+  const isAdminSlug = 
+    path === '/admin' ||
+    path.startsWith('/admin') ||
+    params.get('view') === 'admin' ||
+    params.has('admin') ||
+    hash === '#admin';
+
+  if (isAdminSlug) {
+    if (!staff || staff.role !== 'admin') {
+      window.history.replaceState({ view: 'login' }, '', '/login');
+      return 'login';
+    }
+    return 'admin';
+  }
+
+  const isManagerSlug = 
+    path === '/manager' ||
+    path.startsWith('/manager') ||
+    path === '/arm' ||
+    path.startsWith('/arm') ||
+    params.get('view') === 'manager' ||
+    params.has('manager') ||
+    hash === '#manager';
+
+  if (isManagerSlug) {
+    if (!staff) {
+      window.history.replaceState({ view: 'login' }, '', '/login');
+      return 'login';
+    }
+    return 'manager';
+  }
+
+  return 'catalog';
+};
+
+export const DEMO_ORDERS: Order[] = [
+  {
+    id: 'ord-demo-8915',
+    orderNumber: 'CX-2026-8915',
+    type: 'invoice',
+    status: 'invoice_issued',
+    createdAt: new Date().toISOString(),
+    validUntil: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    client: {
+      bin: '080140012345',
+      companyName: 'ТОО "КазХимСинтез"',
+      kbe: '17',
+      iik: 'KZ456010002003456789',
+      bik: 'HSBKKZKX',
+      bankName: 'АО "Народный Банк Казахстана"',
+      contactName: 'Алексей Бережной',
+      contactPhone: '+7 (701) 450-89-22',
+      contactEmail: 'procurement@kazchimsynthez.kz',
+      deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
+    },
+    items: [
+      {
+        productId: 1,
+        sku: 'TCI-E0297-25G',
+        name: '1-этинил-1-циклогексанол',
+        casNumber: '78-27-3',
+        brand: 'TCI',
+        packaging: '25g',
+        quantity: 2,
+        priceKzt: 19800,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+      {
+        productId: 741192,
+        sku: 'MKL-A801235-4L',
+        name: 'Ацетонитрил для ВЭЖХ особой чистоты Ultra Gradient',
+        casNumber: '75-05-8',
+        brand: 'Macklin',
+        packaging: '4.0L',
+        quantity: 1,
+        priceKzt: 42000,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 81600,
+    vatKzt: 0,
+    totalKzt: 81600,
+    vatMode: 'none',
+    isManagerConfirmed: false,
+    clientMessage: 'Просьба приложить паспорта CoA/SDS к партии.',
+    createdById: 'usr-client-1',
+    organizationBin: '080140012345',
+  },
+  {
+    id: 'ord-demo-7420',
+    orderNumber: 'CX-2026-7420',
+    type: 'quote',
+    status: 'quote_sent',
+    createdAt: new Date(Date.now() - 3600000 * 20).toISOString(),
+    validUntil: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+    client: {
+      bin: '140540023456',
+      companyName: 'ТОО "ЛабФарм Трейд"',
+      kbe: '17',
+      iik: 'KZ897050001004567123',
+      bik: 'CASPKZKA',
+      bankName: 'АО "Kaspi Bank"',
+      contactName: 'Динара Серикова',
+      contactPhone: '+7 (777) 321-44-55',
+      contactEmail: 'orders@labpharm.kz',
+      deliveryAddress: 'г. Астана, ул. Достык, 18, БЦ "Москва"',
+    },
+    items: [
+      {
+        productId: 520326,
+        sku: 'BSY-BR5589247-96T',
+        name: 'Набор для ИФА на белок цилиндромы человека (CYLD)',
+        casNumber: 'ELK-BIO-CYLD',
+        brand: 'BSY',
+        packaging: '96T',
+        quantity: 1,
+        priceKzt: 185000,
+        vatRate: 0,
+        warehouseId: 'wh-spec-chem',
+      },
+    ],
+    subtotalKzt: 185000,
+    vatKzt: 0,
+    totalKzt: 185000,
+    vatMode: 'none',
+    isManagerConfirmed: true,
+    managerComment: 'Сроки согласованы с производителем BSY, прямая авиадоставка в Астану.',
+    createdById: 'usr-client-3',
+    organizationBin: '140540023456',
+  },
+];
+
+const loadSavedOrders = (): Order[] => {
+  if (typeof window === 'undefined') return DEMO_ORDERS;
+  try {
+    const raw = localStorage.getItem('chemexpress_b2b_orders');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return DEMO_ORDERS;
+};
+
+const saveOrdersToStorage = (orders: Order[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('chemexpress_b2b_orders', JSON.stringify(orders));
+  } catch (e) {
+    // ignore
+  }
+};
+
+const loadSavedOrganizations = (): OrganizationEntity[] => {
+  if (typeof window === 'undefined') return DEFAULT_ORGANIZATIONS;
+  try {
+    const raw = localStorage.getItem('chemexpress_organizations');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return DEFAULT_ORGANIZATIONS;
+};
+
+const saveOrganizationsToStorage = (orgs: OrganizationEntity[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('chemexpress_organizations', JSON.stringify(orgs));
+  } catch (e) {
+    // ignore
+  }
+};
+
+const loadSavedUsers = (): UserAccount[] => {
+  if (typeof window === 'undefined') return DEFAULT_USERS;
+  try {
+    const raw = localStorage.getItem('chemexpress_users');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return DEFAULT_USERS;
+};
+
+const saveUsersToStorage = (users: UserAccount[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('chemexpress_users', JSON.stringify(users));
+  } catch (e) {
+    // ignore
+  }
+};
+
+const loadSavedAuthUser = (usersList: UserAccount[]): UserAccount | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('chemexpress_auth_user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.email) {
+        return usersList.find(u => u.email.toLowerCase() === parsed.email.toLowerCase()) || parsed;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+};
+
+const saveAuthUserToStorage = (user: UserAccount | null) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem('chemexpress_auth_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('chemexpress_auth_user');
+    }
+  } catch (e) {
+    // ignore
+  }
+};
+
+const initialUsers = loadSavedUsers();
+const initialOrgs = loadSavedOrganizations();
+const initialAuthUser = loadSavedAuthUser(initialUsers);
+const initialAuthOrg = initialAuthUser 
+  ? initialOrgs.find(o => o.bin === initialAuthUser.organizationBin) || null 
+  : null;
+
 export const useStore = create<AppState>((set, get) => ({
-  currentView: 'catalog',
-  setCurrentView: (view) => set({ currentView: view }),
+  currentView: getInitialView(),
+  setCurrentView: (view) => {
+    let targetView = view;
+    const staff = get().staffUser;
+
+    if ((view === 'manager' || view === 'admin') && !staff) {
+      targetView = 'login';
+    } else if (view === 'admin' && staff?.role !== 'admin') {
+      targetView = 'login';
+    }
+
+    set({ currentView: targetView });
+    if (typeof window !== 'undefined') {
+      if (targetView === 'login') {
+        if (!window.location.pathname.toLowerCase().startsWith('/login')) {
+          window.history.replaceState({ view: 'login' }, '', '/login');
+        }
+      } else if (targetView === 'admin') {
+        if (!window.location.pathname.toLowerCase().startsWith('/admin')) {
+          window.history.pushState({ view: 'admin' }, '', '/admin');
+        }
+      } else if (targetView === 'manager') {
+        if (!window.location.pathname.toLowerCase().startsWith('/manager')) {
+          window.history.pushState({ view: 'manager' }, '', '/manager');
+        }
+      } else {
+        if (
+          window.location.pathname.toLowerCase().startsWith('/manager') ||
+          window.location.pathname.toLowerCase().startsWith('/admin') ||
+          window.location.pathname.toLowerCase().startsWith('/login') ||
+          window.location.pathname.toLowerCase().startsWith('/arm') ||
+          window.location.search.includes('view=')
+        ) {
+          window.history.pushState({ view: 'catalog' }, '', '/');
+        }
+      }
+    }
+  },
+
+  staffUser: loadSavedStaffUser(),
+  loginStaff: (email, password) => {
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanPass = password.trim();
+
+    const account = DEFAULT_STAFF_ACCOUNTS.find(
+      acc => acc.email.toLowerCase() === cleanEmail && acc.password === cleanPass
+    );
+
+    if (!account) {
+      return {
+        success: false,
+        error: 'Неверный логин или пароль сотрудника ChemExpress.',
+      };
+    }
+
+    const user: StaffUser = {
+      id: account.id,
+      fullName: account.fullName,
+      email: account.email,
+      role: account.role,
+    };
+
+    saveStaffUserToStorage(user);
+    set({ staffUser: user });
+    return { success: true };
+  },
+
+  logoutStaff: () => {
+    saveStaffUserToStorage(null);
+    set({ staffUser: null });
+    get().setCurrentView('login');
+  },
 
   catalogTab: getInitialCatalogTab(),
   products: INITIAL_FALLBACK_PRODUCTS.map(p => enrichProduct(p)),
@@ -327,7 +745,128 @@ export const useStore = create<AppState>((set, get) => ({
   vatMode: 'none',
   setVatMode: (mode) => set({ vatMode: mode }),
 
-  orders: [],
+  orders: loadSavedOrders(),
+
+  // Auth & Organization state
+  currentUser: initialAuthUser,
+  currentOrganization: initialAuthOrg,
+  users: initialUsers,
+  organizations: initialOrgs,
+  isAuthModalOpen: false,
+  authModalMode: 'login',
+  authCallbackAction: null,
+  isOrgProfileModalOpen: false,
+
+  login: (emailOrPhone: string) => {
+    const query = emailOrPhone.toLowerCase().trim();
+    const queryDigits = emailOrPhone.replace(/\D/g, '');
+    const user = get().users.find(u => 
+      u.email.toLowerCase() === query ||
+      (queryDigits.length >= 10 && u.phone.replace(/\D/g, '').endsWith(queryDigits))
+    );
+    if (!user) {
+      return false;
+    }
+
+    const org = get().organizations.find(o => o.bin === user.organizationBin) || null;
+    set({
+      currentUser: user,
+      currentOrganization: org,
+      isAuthModalOpen: false,
+    });
+    saveAuthUserToStorage(user);
+
+    const callback = get().authCallbackAction;
+    if (callback) {
+      set({ authCallbackAction: null });
+      callback();
+    }
+    return true;
+  },
+
+  register: (data: RegisterUserData) => {
+    const existingUser = get().users.find(u => u.email.toLowerCase() === data.email.toLowerCase().trim());
+    if (existingUser) {
+      return get().login(data.email);
+    }
+
+    const organizations = [...get().organizations];
+    let org = organizations.find(o => o.bin === data.bin.trim());
+
+    const newUser: UserAccount = {
+      id: `usr-${Date.now()}`,
+      fullName: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      roleInOrg: data.roleInOrg,
+      organizationBin: data.bin.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    if (org) {
+      if (!org.memberUserIds.includes(newUser.id)) {
+        org.memberUserIds.push(newUser.id);
+      }
+    } else {
+      org = {
+        bin: data.bin.trim(),
+        companyName: data.companyName,
+        kbe: data.kbe || '17',
+        iik: data.iik || '',
+        bik: data.bik || 'HSBKKZKX',
+        bankName: data.bankName || 'АО "Народный Банк Казахстана"',
+        legalAddress: data.deliveryAddress || 'г. Алматы',
+        deliveryAddress: data.deliveryAddress || '',
+        memberUserIds: [newUser.id],
+        createdAt: new Date().toISOString(),
+      };
+      organizations.push(org);
+    }
+
+    const updatedUsers = [...get().users, newUser];
+    saveUsersToStorage(updatedUsers);
+    saveOrganizationsToStorage(organizations);
+    saveAuthUserToStorage(newUser);
+
+    set({
+      users: updatedUsers,
+      organizations,
+      currentUser: newUser,
+      currentOrganization: org,
+      isAuthModalOpen: false,
+    });
+
+    const callback = get().authCallbackAction;
+    if (callback) {
+      set({ authCallbackAction: null });
+      callback();
+    }
+    return true;
+  },
+
+  logout: () => {
+    saveAuthUserToStorage(null);
+    set({
+      currentUser: null,
+      currentOrganization: null,
+      isOrgProfileModalOpen: false,
+    });
+  },
+
+  openAuthModal: (mode = 'login', onComplete) => {
+    set({
+      isAuthModalOpen: true,
+      authModalMode: mode,
+      authCallbackAction: onComplete || null,
+    });
+  },
+  closeAuthModal: () => set({ isAuthModalOpen: false, authCallbackAction: null }),
+  openOrgProfileModal: () => set({ isOrgProfileModalOpen: true }),
+  closeOrgProfileModal: () => set({ isOrgProfileModalOpen: false }),
+
+  isMyDocumentsOpen: false,
+  openMyDocuments: () => set({ isMyDocumentsOpen: true }),
+  closeMyDocuments: () => set({ isMyDocumentsOpen: false }),
 
   createOrder: ({ type, client, items, clientMessage, validDays = 5, vatMode }) => {
     const currentVatMode = vatMode || get().vatMode;
@@ -358,20 +897,36 @@ export const useStore = create<AppState>((set, get) => ({
       vatMode: currentVatMode,
       isManagerConfirmed: false,
       clientMessage,
+      createdById: get().currentUser?.id,
+      organizationBin: get().currentUser?.organizationBin || client.bin,
     };
 
     // Note: Stock reservation is NOT done automatically upon quote/invoice creation,
     // per client requirement: goods are reserved only after payment or manual confirmation.
 
-    set(state => ({
-      orders: [newOrder, ...state.orders],
-      previewOrder: newOrder,
-    }));
+    set(state => {
+      const updated = [newOrder, ...state.orders];
+      saveOrdersToStorage(updated);
+      return {
+        orders: updated,
+        previewOrder: newOrder,
+      };
+    });
 
     get().addToast({
       type: 'success',
-      title: type === 'invoice' ? 'Счёт сформирован' : type === 'quote' ? 'КП подготовлено' : 'Запрос отправлен',
-      message: `Документ ${orderNumber} успешно сформирован. Срок действия: ${validDays} дней.`,
+      title: type === 'invoice' ? 'Счёт сформирован' : 'КП сформировано',
+      message: `№ ${orderNumber} • Сохранён в`,
+      actionLabel: 'личном кабинете',
+      onAction: () => {
+        get().setPreviewOrder(null);
+        if (get().currentUser && get().currentOrganization) {
+          get().openOrgProfileModal();
+        } else {
+          get().openMyDocuments();
+        }
+      },
+      duration: 10000,
     });
 
     return newOrder;
@@ -390,10 +945,47 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return o;
       });
+      saveOrdersToStorage(updatedOrders);
       const updatedPreview = state.previewOrder?.id === orderId 
         ? updatedOrders.find(o => o.id === orderId) || null 
         : state.previewOrder;
       return { orders: updatedOrders, previewOrder: updatedPreview };
+    });
+  },
+
+  confirmOrderByManager: (orderId, details) => {
+    let orderNum = '';
+    set(state => {
+      const updatedOrders = state.orders.map(o => {
+        if (o.id === orderId) {
+          orderNum = o.orderNumber;
+          const deliveryCost = details?.deliveryCostKzt !== undefined ? details.deliveryCostKzt : (o.deliveryCostKzt || 0);
+          const baseGoodsTotal = o.subtotalKzt + (o.vatKzt || 0);
+          return {
+            ...o,
+            isManagerConfirmed: true,
+            deliveryAddress: details?.deliveryAddress ?? o.deliveryAddress ?? o.client.deliveryAddress,
+            deliveryCity: details?.deliveryCity ?? o.deliveryCity,
+            deliveryDays: details?.deliveryDays ?? o.deliveryDays,
+            deliveryCostKzt: deliveryCost,
+            managerComment: details?.managerComment ?? o.managerComment,
+            totalKzt: baseGoodsTotal + deliveryCost,
+          };
+        }
+        return o;
+      });
+      saveOrdersToStorage(updatedOrders);
+      const updatedPreview = state.previewOrder?.id === orderId
+        ? updatedOrders.find(o => o.id === orderId) || null
+        : state.previewOrder;
+      return { orders: updatedOrders, previewOrder: updatedPreview };
+    });
+
+    get().addToast({
+      type: 'success',
+      title: 'Заказ утверждён менеджером',
+      message: `${orderNum ? `№ ${orderNum} • ` : ''}Условия поставки зафиксированы`,
+      duration: 4000,
     });
   },
 
@@ -405,6 +997,44 @@ export const useStore = create<AppState>((set, get) => ({
     const order = orders[index];
     const prevStatus = order.status;
     order.status = newStatus;
+
+    if (newStatus === 'paid' && prevStatus !== 'paid') {
+      order.paidAt = new Date().toISOString();
+      const inventoryStore = { ...get().inventoryStore };
+
+      order.items.forEach(item => {
+        const prod = inventoryStore[item.productId];
+        if (prod) {
+          prod.stock = prod.stock.map(s => {
+            if (s.warehouseId === item.warehouseId) {
+              return {
+                ...s,
+                reserved: s.reserved + item.quantity,
+              };
+            }
+            return s;
+          });
+          inventoryStore[item.productId] = prod;
+
+          const mov: StockMovement = {
+            id: `mov-${Date.now()}-${Math.random()}`,
+            timestamp: new Date().toISOString(),
+            type: 'reservation',
+            productId: item.productId,
+            productName: item.name,
+            warehouseId: item.warehouseId,
+            quantity: item.quantity,
+            documentRef: order.orderNumber,
+            comment: `Резервирование по факту оплаты счёта ${order.orderNumber}`,
+            performedBy: 'Отдел продаж ChemExpress',
+          };
+          set(state => ({ movements: [mov, ...state.movements] }));
+        }
+      });
+
+      const updatedProducts = get().products.map(p => inventoryStore[p.id] || p);
+      set({ inventoryStore, products: updatedProducts });
+    }
 
     if (newStatus === 'shipped' && prevStatus !== 'shipped') {
       order.shippedAt = new Date().toISOString();
@@ -445,12 +1075,8 @@ export const useStore = create<AppState>((set, get) => ({
       set({ inventoryStore, products: updatedProducts });
     }
 
+    saveOrdersToStorage(orders);
     set({ orders });
-    get().addToast({
-      type: 'info',
-      title: 'Статус изменен',
-      message: `Документ ${order.orderNumber} переведен в статус: ${newStatus}`,
-    });
   },
 
   previewOrder: null,
@@ -459,8 +1085,18 @@ export const useStore = create<AppState>((set, get) => ({
   movements: [],
 
   toasts: [],
-  addToast: () => {},
-  removeToast: () => {},
+  addToast: (toast) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newToast: ToastMessage = { ...toast, id };
+    const duration = toast.duration ?? 10000;
+    set(state => ({ toasts: [...state.toasts, newToast] }));
+    setTimeout(() => {
+      get().removeToast(id);
+    }, duration);
+  },
+  removeToast: (id) => {
+    set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }));
+  },
 
   getAvailableStock: (product, warehouseId) => {
     if (warehouseId) {
@@ -477,6 +1113,10 @@ if (typeof window !== 'undefined') {
     const tab = getInitialCatalogTab();
     if (useStore.getState().catalogTab !== tab) {
       useStore.getState().setCatalogTab(tab, false);
+    }
+    const view = getInitialView();
+    if (useStore.getState().currentView !== view) {
+      useStore.setState({ currentView: view });
     }
   });
 }

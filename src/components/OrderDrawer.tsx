@@ -20,7 +20,6 @@ import {
   ChevronUp, 
   AlertCircle, 
   Clock,
-  Sparkles,
   Download,
   ShieldCheck
 } from 'lucide-react';
@@ -35,6 +34,12 @@ export const OrderDrawer: React.FC = () => {
     removeFromCart,
     clearCart,
     createOrder,
+    currentUser,
+    currentOrganization,
+    organizations,
+    openAuthModal,
+    vatMode, 
+    setVatMode
   } = useStore();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -58,7 +63,31 @@ export const OrderDrawer: React.FC = () => {
   const [clientComment, setClientComment] = useState('');
   const [validDays] = useState(5);
   const [formError, setFormError] = useState<string | null>(null);
-  const { vatMode, setVatMode } = useStore();
+
+  // Prefill form from authenticated organization & user
+  useEffect(() => {
+    if (currentUser && currentOrganization) {
+      setBin(currentOrganization.bin);
+      setCompanyName(currentOrganization.companyName);
+      setContactName(currentUser.fullName);
+      setContactPhone(currentUser.phone);
+      setContactEmail(currentUser.email);
+      if (currentOrganization.deliveryAddress) {
+        setDeliveryAddress(currentOrganization.deliveryAddress);
+        setDeliveryType('delivery');
+      }
+      if (currentOrganization.iik) {
+        setIik(currentOrganization.iik);
+        setShowBanking(true);
+      }
+      if (currentOrganization.bik) {
+        setBik(currentOrganization.bik);
+      }
+      if (currentOrganization.bankName) {
+        setBankName(currentOrganization.bankName);
+      }
+    }
+  }, [currentUser, currentOrganization, isOrderDrawerOpen, step]);
 
   // Sync activeTab with orderDrawerType from trigger and reset step to 1
   useEffect(() => {
@@ -70,6 +99,16 @@ export const OrderDrawer: React.FC = () => {
       setFormError(null);
     }
   }, [isOrderDrawerOpen, orderDrawerType]);
+
+  // Strict guard: transitioning to Step 2 always requires authenticated user
+  useEffect(() => {
+    if (isOrderDrawerOpen && step === 2 && !currentUser) {
+      setStep(1);
+      openAuthModal('login', () => {
+        setStep(2);
+      });
+    }
+  }, [isOrderDrawerOpen, step, currentUser, openAuthModal]);
 
   // Lock body scroll and handle Escape key
   useEffect(() => {
@@ -122,18 +161,23 @@ export const OrderDrawer: React.FC = () => {
     const clean = val.replace(/\D/g, '').slice(0, 12);
     setBin(clean);
     if (formError) setFormError(null);
-  };
 
-  // Quick fill demo B2B company data for effortless testing
-  const handleQuickFillDemo = () => {
-    setBin('230740019280');
-    setCompanyName('ТОО «КазХимПром Аналитика»');
-    setContactName('Алибеков Руслан Маратович');
-    setContactPhone('+7 (777) 345-67-89');
-    setContactEmail('zakup@kazchimprom.kz');
-    setDeliveryType('delivery');
-    setDeliveryAddress('г. Алматы, Бостандыкский район, ул. Тимирязева 42, корпус 3');
-    setFormError(null);
+    if (clean.length === 12) {
+      const foundOrg = organizations.find(o => o.bin === clean);
+      if (foundOrg) {
+        setCompanyName(foundOrg.companyName);
+        if (foundOrg.iik) {
+          setIik(foundOrg.iik);
+          setShowBanking(true);
+        }
+        if (foundOrg.bik) setBik(foundOrg.bik);
+        if (foundOrg.bankName) setBankName(foundOrg.bankName);
+        if (foundOrg.deliveryAddress) {
+          setDeliveryAddress(foundOrg.deliveryAddress);
+          setDeliveryType('delivery');
+        }
+      }
+    }
   };
 
   const handleProceedToStep2 = () => {
@@ -142,6 +186,15 @@ export const OrderDrawer: React.FC = () => {
       return;
     }
     setFormError(null);
+
+    // If user is not logged in, prompt authentication/registration before proceeding to Step 2
+    if (!currentUser) {
+      openAuthModal('login', () => {
+        setStep(2);
+      });
+      return;
+    }
+
     setStep(2);
   };
 
@@ -362,9 +415,7 @@ export const OrderDrawer: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => {
-              if (cart.length > 0) setStep(2);
-            }}
+            onClick={handleProceedToStep2}
             disabled={cart.length === 0}
             className={`py-3 px-5 flex items-center justify-center gap-2 font-semibold transition-all border-b-2 ${
               step === 2 
@@ -676,15 +727,10 @@ export const OrderDrawer: React.FC = () => {
                   <span>Вернуться к составу заказа</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleQuickFillDemo}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-navy-900 bg-navy-50 hover:bg-navy-100 px-3 py-1 rounded-lg border border-navy-200/80 transition-colors cursor-pointer"
-                  title="Заполнить реквизиты ТОО для быстрого тестирования"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-navy-800" />
-                  <span>Автозаполнение (тест)</span>
-                </button>
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Реквизиты загружены из профиля</span>
+                </div>
               </div>
 
               {/* Selected document type confirmation chip */}
@@ -703,6 +749,32 @@ export const OrderDrawer: React.FC = () => {
                   Изменить
                 </button>
               </div>
+
+              {/* Organization & User Linkage Banner */}
+              {currentUser && currentOrganization && (
+                <div className="p-3.5 rounded-xl bg-navy-50/80 border border-navy-200/90 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-navy-900 text-white font-bold flex items-center justify-center shrink-0 text-xs">
+                      {currentUser.fullName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-navy-950">
+                        {currentUser.fullName} • <span className="font-normal text-navy-800">{currentOrganization.companyName}</span>
+                      </div>
+                      <div className="text-[11px] text-navy-600 font-mono">
+                        БИН: {currentOrganization.bin} • Документ закрепится за вашей организацией
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal('login', () => setStep(2))}
+                    className="text-[11px] text-navy-800 hover:text-navy-950 font-bold underline cursor-pointer shrink-0"
+                  >
+                    Сменить
+                  </button>
+                </div>
+              )}
 
               {/* Section: Organization details */}
               <div className="space-y-3">

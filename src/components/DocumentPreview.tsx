@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import type { Order } from '../types';
-import { useStore } from '../store/useStore';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   Printer, 
   Download, 
@@ -23,12 +24,12 @@ interface DocumentPreviewProps {
 }
 
 export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose }) => {
-  const { toggleOrderManagerConfirmation, addToast } = useStore();
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState(order.client.contactEmail || '');
   const [isCopied, setIsCopied] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -95,6 +96,74 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
     }, 3000);
   };
 
+  const handleDownloadPdf = async () => {
+    const sheetElement = document.getElementById('print-document-sheet');
+    if (!sheetElement || isGeneratingPdf) return;
+
+    try {
+      setIsGeneratingPdf(true);
+
+      const prevScrollTop = sheetElement.scrollTop;
+      sheetElement.scrollTop = 0;
+
+      const canvas = await html2canvas(sheetElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+          const clonedSheet = clonedDoc.getElementById('print-document-sheet');
+          if (clonedSheet) {
+            clonedSheet.style.overflow = 'visible';
+            clonedSheet.style.maxHeight = 'none';
+            clonedSheet.style.height = 'auto';
+            clonedSheet.style.padding = '24px';
+          }
+        },
+      });
+
+      sheetElement.scrollTop = prevScrollTop;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = 297;
+
+      if (pdfHeight <= pageHeight) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      } else {
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position = heightLeft - pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+      }
+
+      const safeFileName = `${docTitle.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+      pdf.save(safeFileName);
+    } catch (err) {
+      console.error('Error generating PDF directly:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const emailSubject = `${docTitle} от ИП «ChemExpress»`;
   const emailBody = `Здравствуйте, ${order.client.contactName || order.client.companyName || 'уважаемый партнер'}!\n\n` +
     `Направляем Вам ${docTitle} на сумму ${order.totalKzt.toLocaleString('ru-RU')} ₸ (${order.vatMode === 'vat16' ? 'с НДС 16%' : 'без НДС'}).\n` +
@@ -125,11 +194,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
     setTimeout(() => {
       setIsSending(false);
       setSendSuccess(true);
-      addToast({
-        type: 'success',
-        title: 'Email отправлен',
-        message: `${docTitle} поставлен в очередь отправки на ${target}`
-      });
     }, 600);
   };
 
@@ -188,7 +252,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                   ) : (
                     <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Предварительное (автоматическое)
+                      Предварительное
                     </span>
                   )}
                   <span>• Срок: 5 дней</span>
@@ -207,14 +271,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
 
           {/* Bottom Row: Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Toggle confirmation for testing both statuses */}
-            <button
-              onClick={() => toggleOrderManagerConfirmation(order.id)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-slate-700 transition-all cursor-pointer"
-              title="Переключить статус проверки менеджером"
-            >
-              <span>{order.isManagerConfirmed ? 'Статус: Проверено' : 'Статус: Предварительное'}</span>
-            </button>
 
             <button
               onClick={handlePrint}
@@ -225,12 +281,22 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             </button>
 
             <button
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-200 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
-              title="Сохранить как PDF через печать"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-200 text-xs font-semibold border border-slate-700 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Скачать готовый PDF-файл напрямую на устройство"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>PDF</span>
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  <span>Формирование...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>PDF</span>
+                </>
+              )}
             </button>
 
             <button
@@ -256,7 +322,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
               />
               <div className="border-l border-gray-300 pl-3">
                 <div className="font-extrabold text-gray-950 text-sm tracking-tight">{COMPANY_SELLER_DETAILS.name}</div>
-                <div className="text-[10px] text-gray-500 font-medium">Поставка химических реактивов, стандартов и лабораторных систем</div>
+                <div className="text-[10px] text-gray-500 font-medium">{COMPANY_SELLER_DETAILS.slogan}</div>
               </div>
             </div>
             <div className="text-right text-[10px] text-gray-600 space-y-0.5 font-mono">
@@ -270,7 +336,15 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           {isInvoice && (
             <div className="mb-3.5 border border-gray-400">
               <div className="text-[10px] text-gray-700 font-semibold p-1.5 bg-gray-50 border-b border-gray-300">
-                Внимание! Оплата данного счета означает согласие с условиями поставки. Срок действия счета: 5 календарных дней. Товар резервируется после поступления оплаты.
+                {!order.isManagerConfirmed ? (
+                  <span>
+                    Внимание! Счёт сформирован автоматически и является предварительным. Стоимость доставки в сумму счёта не включена. Стоимость и условия доставки необходимо согласовать с менеджером до оплаты. Срок действия счёта — 5 календарных дней.
+                  </span>
+                ) : (
+                  <span>
+                    Внимание! Счёт и условия доставки подтверждены менеджером ChemExpress. Срок действия счёта — 5 календарных дней. Товар резервируется после поступления оплаты на расчётный счёт.
+                  </span>
+                )}
               </div>
               <table className="w-full text-left border-collapse text-[11px]">
                 <tbody>
@@ -321,7 +395,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             <div className="grid grid-cols-12 gap-2">
               <span className="col-span-2 font-bold text-gray-700">Поставщик:</span>
               <div className="col-span-10 text-gray-900 leading-snug">
-                <strong>{COMPANY_SELLER_DETAILS.name}</strong>, БИН {COMPANY_SELLER_DETAILS.bin}, {COMPANY_SELLER_DETAILS.legalAddress}, тел.: {COMPANY_SELLER_DETAILS.phone}
+                <strong>{COMPANY_SELLER_DETAILS.name}</strong>, БИН: {COMPANY_SELLER_DETAILS.bin}, ОКЭД: {COMPANY_SELLER_DETAILS.oked}, {COMPANY_SELLER_DETAILS.legalAddress}, тел.: {COMPANY_SELLER_DETAILS.phone}
               </div>
             </div>
 
@@ -334,10 +408,30 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
               </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-2">
-              <span className="col-span-2 font-bold text-gray-700">Основание:</span>
-              <div className="col-span-10 text-gray-800">
-                Заявка покупателя через официальный B2B реестр ChemExpress ({order.orderNumber})
+            {/* Delivery Terms & Dispatch Info */}
+            <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200">
+              <span className="col-span-2 font-bold text-gray-700">Условия доставки:</span>
+              <div className="col-span-10 text-gray-900 leading-snug">
+                {order.isManagerConfirmed ? (
+                  <div className="space-y-0.5">
+                    <div>
+                      Адрес доставки: <strong>{order.deliveryAddress || order.client.deliveryAddress || 'По согласованию с заказчиком'}</strong>
+                    </div>
+                    <div className="text-[11px] text-gray-600">
+                      Срок поставки: <strong className="text-gray-900">{order.deliveryDays || '1-3 рабочих дня (со склада)'}</strong>
+                      {' • '}
+                      Доставка: <strong className="text-gray-900">
+                        {order.deliveryCostKzt && order.deliveryCostKzt > 0 
+                          ? `${order.deliveryCostKzt.toLocaleString('ru-RU')} ₸` 
+                          : 'Включена в стоимость (Бесплатно)'}
+                      </strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-amber-800 bg-amber-50/70 p-1.5 rounded border border-amber-200 text-[11px] leading-relaxed">
+                    <strong>Предварительный расчет (без учета логистики):</strong> адрес: {order.client.deliveryAddress || 'Уточняется'}. Точный срок и стоимость доставки рассчитываются менеджером по продажам перед утверждением заказа.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -403,13 +497,19 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                 {isVat16 ? (
                   <>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого без НДС:</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого товары без НДС:</td>
                       <td className="py-1 font-bold text-gray-900">{order.subtotalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                     <tr>
                       <td className="py-1 pr-4 font-semibold text-gray-600">В том числе НДС (16%):</td>
                       <td className="py-1 font-bold text-gray-900">{order.vatKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
+                    {order.deliveryCostKzt && order.deliveryCostKzt > 0 ? (
+                      <tr>
+                        <td className="py-1 pr-4 font-semibold text-gray-600">Доставка:</td>
+                        <td className="py-1 font-bold text-gray-900">{order.deliveryCostKzt.toLocaleString('ru-RU')} ₸</td>
+                      </tr>
+                    ) : null}
                     <tr className="border-t border-gray-900 text-sm">
                       <td className="py-1.5 pr-4 font-bold text-gray-900">Всего к оплате с НДС:</td>
                       <td className="py-1.5 font-black text-gray-900">{order.totalKzt.toLocaleString('ru-RU')} ₸</td>
@@ -418,13 +518,19 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                 ) : (
                   <>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого:</td>
-                      <td className="py-1 font-bold text-gray-900">{order.totalKzt.toLocaleString('ru-RU')} ₸</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого по товарам:</td>
+                      <td className="py-1 font-bold text-gray-900">{order.subtotalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                     <tr>
                       <td className="py-1 pr-4 font-semibold text-gray-600">НДС:</td>
                       <td className="py-1 font-semibold text-gray-700">Без НДС (ИП на ОУР)</td>
                     </tr>
+                    {order.deliveryCostKzt && order.deliveryCostKzt > 0 ? (
+                      <tr>
+                        <td className="py-1 pr-4 font-semibold text-gray-600">Доставка:</td>
+                        <td className="py-1 font-bold text-gray-900">{order.deliveryCostKzt.toLocaleString('ru-RU')} ₸</td>
+                      </tr>
+                    ) : null}
                     <tr className="border-t border-gray-900 text-sm">
                       <td className="py-1.5 pr-4 font-bold text-gray-900">Всего к оплате:</td>
                       <td className="py-1.5 font-black text-gray-900">{order.totalKzt.toLocaleString('ru-RU')} ₸</td>
@@ -440,8 +546,13 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             <p className="text-gray-800">
               Всего наименований <strong>{order.items.length}</strong>, на сумму <strong>{order.totalKzt.toLocaleString('ru-RU')} KZT</strong> {isVat16 ? '(в т.ч. НДС 16%)' : '(Без НДС)'}.
             </p>
+            {isQuote && !order.isManagerConfirmed && (
+              <p className="text-gray-900 mt-2 text-[11px] leading-relaxed">
+                <strong>Примечание:</strong> Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером.
+              </p>
+            )}
             {order.clientMessage && (
-              <p className="text-gray-600 mt-1 italic text-[11px]">
+              <p className="text-gray-600 mt-1.5 italic text-[11px]">
                 Примечание заказчика: {order.clientMessage}
               </p>
             )}
@@ -458,7 +569,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
               ) : (
                 <div className="bg-amber-50/70 border-amber-300 text-amber-950 p-2.5 rounded">
                   <div className="font-bold mb-0.5">Статус: предварительное коммерческое предложение.</div>
-                  <div>Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.</div>
+                  <div>Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.</div>
                 </div>
               )}
             </div>

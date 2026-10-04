@@ -79,6 +79,45 @@ export interface OrderItem {
   warehouseId: WarehouseId;
 }
 
+export type OrgUserRole = 'owner' | 'procurement' | 'accountant' | 'member';
+
+export interface UserAccount {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  roleInOrg: OrgUserRole;
+  organizationBin: string;
+  createdAt: string;
+}
+
+export interface OrganizationEntity {
+  bin: string;
+  companyName: string;
+  kbe?: string;
+  iik: string;
+  bik: string;
+  bankName: string;
+  legalAddress: string;
+  deliveryAddress: string;
+  memberUserIds: string[];
+  createdAt: string;
+}
+
+export interface RegisterUserData {
+  fullName: string;
+  email: string;
+  phone: string;
+  roleInOrg: OrgUserRole;
+  bin: string;
+  companyName: string;
+  kbe?: string;
+  iik?: string;
+  bik?: string;
+  bankName?: string;
+  deliveryAddress?: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -97,6 +136,12 @@ export interface Order {
   clientMessage?: string;
   paidAt?: string;
   shippedAt?: string;
+  createdById?: string;
+  organizationBin?: string;
+  deliveryCity?: string;
+  deliveryAddress?: string;
+  deliveryDays?: string;
+  deliveryCostKzt?: number;
 }
 
 export interface StockMovement {
@@ -111,3 +156,13 @@ export interface StockMovement {
   comment: string;
   performedBy: string;
 }
+
+export type StaffRole = 'manager' | 'admin';
+
+export interface StaffUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: StaffRole;
+}
+

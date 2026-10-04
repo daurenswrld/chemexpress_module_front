@@ -251,6 +251,17 @@ export const Footer: React.FC = () => {
         <div className="pt-8 border-t border-navy-800/70 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span>© 2026 {COMPANY_SELLER_DETAILS.name}. B2B Реестр поставок.</span>
+            <span className="text-navy-700 hidden sm:inline">•</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView('login');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-[11px]"
+            >
+              Вход для сотрудников (/login)
+            </button>
           </div>
 
           <div className="flex items-center gap-4 text-xs">

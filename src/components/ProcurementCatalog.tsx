@@ -65,6 +65,33 @@ export const ProcurementCatalog: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const [addedProductIds, setAddedProductIds] = useState<Record<number, boolean>>({});
+  const addedTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(addedTimersRef.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
+
+  const handleAddToCartWithFeedback = (product: InventoryItem, qty: number) => {
+    addToCart(product, qty);
+
+    if (addedTimersRef.current[product.id]) {
+      clearTimeout(addedTimersRef.current[product.id]);
+    }
+
+    setAddedProductIds((prev) => ({ ...prev, [product.id]: true }));
+
+    addedTimersRef.current[product.id] = setTimeout(() => {
+      setAddedProductIds((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      delete addedTimersRef.current[product.id];
+    }, 1600);
+  };
 
   const isSearching = inputVal !== searchQuery;
   const isTableBusy = isLoading || isClientFiltering || isSearching;
@@ -471,7 +498,7 @@ export const ProcurementCatalog: React.FC = () => {
                   setSelectedWarehouse(val);
                   setTimeout(() => setIsClientFiltering(false), 180);
                 }}
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-navy-900 cursor-pointer"
+                className="w-56 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-navy-900 cursor-pointer"
               >
                 <option value="all">Все склады РК</option>
                 {WAREHOUSES.map(w => (
@@ -912,14 +939,33 @@ export const ProcurementCatalog: React.FC = () => {
                             </button>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => addToCart(product, currentQty)}
-                            className="btn-cart-primary"
-                          >
-                            <Plus className="w-3.5 h-3.5 text-white" />
-                            <span>В заявку</span>
-                          </button>
+                          {(() => {
+                            const isAdded = !!addedProductIds[product.id];
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => handleAddToCartWithFeedback(product, currentQty)}
+                                className={`btn-cart-primary w-[94px] shrink-0 ${
+                                  isAdded
+                                    ? '!bg-emerald-600 hover:!bg-emerald-600 !shadow-emerald-600/20'
+                                    : ''
+                                }`}
+                                title={isAdded ? 'Товар добавлен в спецификацию' : 'Добавить в спецификацию'}
+                              >
+                                {isAdded ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-white shrink-0 animate-in zoom-in-75 duration-150" />
+                                    <span>Добавлен</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3.5 h-3.5 text-white shrink-0" />
+                                    <span>В заявку</span>
+                                  </>
+                                )}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>
