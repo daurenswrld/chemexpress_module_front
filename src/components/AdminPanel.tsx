@@ -571,7 +571,7 @@ export const AdminPanel: React.FC = () => {
 
             <div className="space-y-3 pt-1">
               <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50/80 transition-colors">
-                <span className="text-xs font-bold text-slate-800">Email-оповещения на order@chemexpress.kz</span>
+                <span className="text-xs font-bold text-slate-800">Email-оповещения на admin@chemexpress.kz</span>
                 <input
                   type="checkbox"
                   checked={autoNotifyEmail}

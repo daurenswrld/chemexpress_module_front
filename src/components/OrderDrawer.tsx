@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import type { OrderType, ClientEntity, OrderItem } from '../types';
+import { hasCyrillic, translateToRussianName } from '../utils/productLocalization';
 import { 
   X, 
   Receipt, 
@@ -249,18 +250,28 @@ export const OrderDrawer: React.FC = () => {
       deliveryAddress: finalAddress,
     };
 
-    const orderItems: OrderItem[] = cart.map(item => ({
-      productId: item.product.id,
-      sku: item.product.product_code || `ID-${item.product.id}`,
-      name: item.product.title_ru,
-      casNumber: item.product.cas_number,
-      brand: item.product.brand,
-      packaging: item.product.quantity || '1 шт',
-      quantity: item.quantity,
-      priceKzt: item.product.computedPrice,
-      vatRate: vatRate,
-      warehouseId: item.warehouseId,
-    }));
+    const orderItems: OrderItem[] = cart.map(item => {
+      const rawTitleRu = item.product.title_ru || '';
+      const rawTitleEn = item.product.title_en || item.product.title_ru || '';
+      const legalRuName = hasCyrillic(rawTitleRu)
+        ? rawTitleRu
+        : translateToRussianName(rawTitleEn, item.product.category_name);
+
+      return {
+        productId: item.product.id,
+        sku: item.product.product_code || `ID-${item.product.id}`,
+        name: legalRuName,
+        nameRu: legalRuName,
+        nameEn: rawTitleEn,
+        casNumber: item.product.cas_number,
+        brand: item.product.brand,
+        packaging: item.product.quantity || '1 шт',
+        quantity: item.quantity,
+        priceKzt: item.product.computedPrice,
+        vatRate: vatRate,
+        warehouseId: item.warehouseId,
+      };
+    });
 
     createOrder({
       type: activeTab,

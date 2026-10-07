@@ -228,19 +228,19 @@ export const ProcurementCatalog: React.FC = () => {
             {/* Metadata Eyebrow */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-medium text-slate-200">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-semibold text-white">ИП «ChemExpress»</span>
+              <span className="font-bold text-white tracking-wide">ChemExpress</span>
               <span className="text-white/30">•</span>
-              <span className="font-mono text-[11px] text-cyan-300">Официальный B2B реестр</span>
+              <span className="font-medium text-cyan-300">Быстро. Качественно. Надёжно.</span>
             </div>
 
-            {/* Headline with quiet confidence */}
+            {/* Headline */}
             <h1 className="text-2xl sm:text-3xl lg:text-[38px] font-bold text-white tracking-[-0.03em] leading-[1.15] font-display">
-              Химические реактивы высокой чистоты и лабораторные системы
+              Комплексное снабжение лабораторий
             </h1>
 
             {/* Editorial Description */}
             <p className="text-slate-300 text-xs sm:text-[14px] leading-relaxed max-w-xl font-normal">
-              Официальные прямые поставки аналитических стандартов, чистых реактивов (TCI, Macklin, BSY) и лабораторного стекла Synthware со склада в Алматы. Поставки по контрактам с юридическими лицами Республики Казахстан с полным пакетом закрывающих документов.
+              Реактивы, расходные материалы, лабораторная посуда и оборудование. Поставки со склада и под заказ по всему Казахстану. Полный пакет документов.
             </p>
 
             {/* Minimalist Action Buttons */}
@@ -281,7 +281,7 @@ export const ProcurementCatalog: React.FC = () => {
 
               <div>
                 <div className="font-mono font-bold text-emerald-400 text-sm sm:text-base">CoA / SDS</div>
-                <div className="text-[11px] text-slate-300 font-medium mt-0.5">паспорта заводов</div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">по запросу</div>
               </div>
             </div>
           </div>
@@ -300,7 +300,7 @@ export const ProcurementCatalog: React.FC = () => {
                   <span className="text-[11px] font-medium">Контроль качества партий</span>
                 </div>
                 <span className="font-mono text-[10px] font-semibold text-white bg-white/10 px-2 py-0.5 rounded border border-white/20">
-                  Сертификаты CoA / SDS
+                  CoA / SDS по запросу
                 </span>
               </div>
             </div>

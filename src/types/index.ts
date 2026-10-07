@@ -69,7 +69,10 @@ export interface ClientEntity {
 export interface OrderItem {
   productId: number;
   sku: string;
-  name: string;
+  name: string; // Official localized Russian compliant name (primary)
+  nameRu?: string;
+  nameEn?: string;
+  nameKz?: string;
   casNumber: string;
   brand: string;
   packaging: string;

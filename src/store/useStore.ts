@@ -105,6 +105,7 @@ interface AppState {
       deliveryDays?: string;
       deliveryCostKzt?: number;
       managerComment?: string;
+      items?: OrderItem[];
     }
   ) => void;
 
@@ -963,6 +964,7 @@ export const useStore = create<AppState>((set, get) => ({
           const baseGoodsTotal = o.subtotalKzt + (o.vatKzt || 0);
           return {
             ...o,
+            items: details?.items ?? o.items,
             isManagerConfirmed: true,
             deliveryAddress: details?.deliveryAddress ?? o.deliveryAddress ?? o.client.deliveryAddress,
             deliveryCity: details?.deliveryCity ?? o.deliveryCity,

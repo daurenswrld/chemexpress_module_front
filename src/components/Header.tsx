@@ -75,14 +75,14 @@ export const Header: React.FC = () => {
             <span className="text-slate-300 hidden sm:inline">|</span>
 
             <a
-              href="mailto:order@chemexpress.kz"
+              href={`mailto:${COMPANY_SELLER_DETAILS.email}`}
               className="inline-flex items-center gap-1.5 font-medium text-slate-600 hover:text-slate-900 transition-colors hidden sm:inline-flex"
             >
               <Mail className="w-3.5 h-3.5 text-slate-400" />
-              <span>order@chemexpress.kz</span>
+              <span>{COMPANY_SELLER_DETAILS.email}</span>
             </a>
 
-            <span className="text-slate-300 hidden sm:inline">|</span>
+            {/* <span className="text-slate-300 hidden sm:inline">|</span>
 
             <a
               href="https://chemexpress.kz"
@@ -93,7 +93,7 @@ export const Header: React.FC = () => {
             >
               <span>chemexpress.kz</span>
               <ExternalLink className="w-3 h-3 text-slate-400" />
-            </a>
+            </a> */}
 
             {currentView === 'catalog' && (
               <>

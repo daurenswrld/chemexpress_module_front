@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import type { Order, OrderStatus } from '../types';
+import type { Order, OrderStatus, OrderItem } from '../types';
 import { 
   Building2, 
   Clock, 
@@ -45,6 +45,7 @@ export const Admin1CWorkstation: React.FC = () => {
   const [managerDeliveryDays, setManagerDeliveryDays] = useState('1-2 рабочих дня');
   const [managerDeliveryCost, setManagerDeliveryCost] = useState<number>(0);
   const [managerComment, setManagerComment] = useState('');
+  const [editableItems, setEditableItems] = useState<OrderItem[]>([]);
 
   const openConfirmModal = (order: Order) => {
     setConfirmingOrder(order);
@@ -53,6 +54,15 @@ export const Admin1CWorkstation: React.FC = () => {
     setManagerDeliveryDays(order.deliveryDays || '1-2 рабочих дня (со склада Алматы)');
     setManagerDeliveryCost(order.deliveryCostKzt || 0);
     setManagerComment(order.managerComment || 'Наличие партии подтверждено. Паспорт качества (CoA) подготовлен.');
+    setEditableItems(order.items.map(it => ({ ...it })));
+  };
+
+  const handleUpdateItemName = (index: number, newName: string) => {
+    setEditableItems(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], name: newName, nameRu: newName };
+      return copy;
+    });
   };
 
   const handleSaveConfirmation = (e: React.FormEvent) => {
@@ -64,6 +74,7 @@ export const Admin1CWorkstation: React.FC = () => {
       deliveryDays: managerDeliveryDays,
       deliveryCostKzt: Number(managerDeliveryCost) || 0,
       managerComment: managerComment,
+      items: editableItems,
     });
     setConfirmingOrder(null);
   };
@@ -630,6 +641,39 @@ export const Admin1CWorkstation: React.FC = () => {
                   <span>Контакт: <strong>{confirmingOrder.client.contactName}</strong></span>
                   <span>Тел: <strong>{confirmingOrder.client.contactPhone}</strong></span>
                   <span>Email: <strong>{confirmingOrder.client.contactEmail}</strong></span>
+                </div>
+              </div>
+
+              {/* Order items nomenclature review (RK language law compliance) */}
+              <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-cyan-700" />
+                    <span>Наименования позиций для Счета и 1С:</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">Стандарт РК (Русский язык)</span>
+                </div>
+                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                  {editableItems.map((item, idx) => (
+                    <div key={item.productId || idx} className="bg-white p-2 rounded-lg border border-slate-200 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                        <span>Артикул: {item.sku}</span>
+                        {item.casNumber && item.casNumber !== 'N/A' && <span>CAS: {item.casNumber}</span>}
+                      </div>
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => handleUpdateItemName(idx, e.target.value)}
+                        placeholder="Официальное наименование на русском языке"
+                        className="w-full p-1.5 text-xs bg-slate-50 border border-slate-300 rounded font-medium focus:bg-white focus:border-navy-900 outline-none transition-colors"
+                      />
+                      {item.nameEn && item.nameEn !== item.name && (
+                        <div className="text-[10px] text-slate-400 truncate">
+                          EN: {item.nameEn}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 

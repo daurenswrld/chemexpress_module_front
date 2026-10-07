@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InventoryItem } from '../types';
-import { WAREHOUSES } from '../data/mockData';
+import { WAREHOUSES, COMPANY_SELLER_DETAILS } from '../data/mockData';
 import { 
   X, 
   Copy, 
@@ -13,7 +13,8 @@ import {
   Thermometer,
   Layers,
   FileText,
-  Download,
+  Send,
+  CheckCircle2,
   Receipt,
   FlaskConical,
   Maximize2
@@ -26,17 +27,25 @@ interface SpecificationDrawerProps {
 }
 
 export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ product, onClose }) => {
-  const { addToCart, openOrderDrawer } = useStore();
+  const { addToCart, openOrderDrawer, addToast, catalogTab } = useStore();
   const [copiedCas, setCopiedCas] = React.useState(false);
-  const [downloadingDoc, setDownloadingDoc] = React.useState<string | null>(null);
+  const [requestedDocs, setRequestedDocs] = React.useState<Array<'sds' | 'coa'>>([]);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
   const [qty, setQty] = React.useState(1);
 
-  // Reset quantity and lightbox only when product changes
+  const isDishware = Boolean(
+    catalogTab === 'dishware' ||
+    (product?.category_name && /посуд|dishware|glass|стекл/i.test(product.category_name)) ||
+    (product?.brand && /synthware|glass/i.test(product.brand)) ||
+    (product?.molecular_formula && /borosilicate|стекло|glass|laboratory/i.test(product.molecular_formula))
+  );
+
+  // Reset quantity, lightbox and document requests only when product changes
   React.useEffect(() => {
     if (!product) return;
     setQty(1);
     setIsLightboxOpen(false);
+    setRequestedDocs([]);
   }, [product?.id]);
 
   // Handle ESC key (closes lightbox first, then modal)
@@ -84,40 +93,39 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
     setTimeout(() => setCopiedCas(false), 2000);
   };
 
-  const handleDownloadDoc = (type: 'sds' | 'coa') => {
-    setDownloadingDoc(type);
-    setTimeout(() => {
-      const docTitle = type === 'sds' 
-        ? `SDS_${product.cas_number || product.id}_Паспорт_Безопасности.txt`
-        : `CoA_${product.cas_number || product.id}_Сертификат_Анализа.txt`;
-      
-      const docContent = `ИП «ChemExpress» — Официальный реестр B2B поставок\n`
-        + `ДОКУМЕНТ: ${type === 'sds' ? 'ПАСПОРТ БЕЗОПАСНОСТИ ВЕЩЕСТВА (SDS)' : 'СЕРТИФИКАТ АНАЛИЗА ПАРТИИ (CoA)'}\n`
-        + `--------------------------------------------------------\n`
-        + `Наименование: ${product.title_ru}\n`
-        + `International Name: ${product.title_en || '—'}\n`
-        + `CAS Регистрационный номер: ${product.cas_number || '—'}\n`
-        + `Артикул (SKU): ${product.product_code || `SKU-${product.id}`}\n`
-        + `Квалификация: ${product.purity || 'ЧДА'}\n`
-        + `Химическая формула: ${product.molecular_formula || '—'}\n`
-        + `Молекулярная масса: ${product.molecular_weight || '—'} г/моль\n`
-        + `Условия хранения: ${product.storage || 'Комнатная'}\n`
-        + `Производитель / Бренд: ${product.brand || 'Chemexpress'}\n`
-        + `--------------------------------------------------------\n`
-        + `Партия проверена Отделом контроля качества ChemExpress.\n`
-        + `Соответствует ГОСТ / ТУ и спецификации производителя.\n`;
+  // SDS / CoA are provided by a manager on request (batch-specific documents),
+  // so the client sends a prefilled request to the customer support mailbox.
+  const handleRequestDoc = (type: 'sds' | 'coa') => {
+    const docName = type === 'sds' ? 'Паспорт безопасности (SDS)' : 'Сертификат анализа (CoA)';
+    const sku = product.product_code || `ID-${product.id}`;
+    const hasCas = product.cas_number && product.cas_number !== 'N/A';
 
-      const blob = new Blob([docContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = docTitle;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      setDownloadingDoc(null);
-    }, 500);
+    const subject = `Запрос: ${docName} — ${sku}`;
+    const body =
+      `Здравствуйте!\n\n` +
+      `Прошу предоставить документ: ${docName}.\n\n` +
+      `Наименование: ${product.title_ru || product.title_en}\n` +
+      (product.title_en && product.title_en !== product.title_ru ? `Международное наименование: ${product.title_en}\n` : '') +
+      `Артикул: ${sku}\n` +
+      (hasCas ? `${product.cas_number.startsWith('Кат.') ? product.cas_number : `CAS: ${product.cas_number}`}\n` : '') +
+      `Бренд: ${product.brand || '—'}\n` +
+      `Фасовка: ${product.quantity || '—'}\n\n` +
+      `Организация / БИН: \n` +
+      `Контактное лицо и телефон: \n`;
+
+    const link = document.createElement('a');
+    link.href = `mailto:${COMPANY_SELLER_DETAILS.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setRequestedDocs(prev => (prev.includes(type) ? prev : [...prev, type]));
+    addToast({
+      type: 'success',
+      title: 'Письмо с запросом сформировано',
+      message: `${docName} • ${sku}. Отправьте письмо из почтового клиента — менеджер пришлёт документ.`,
+      duration: 4000,
+    });
   };
 
   const totalPhysical = product.stock.reduce((sum, s) => sum + s.physical, 0);
@@ -238,7 +246,7 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                   <div className="flex items-center gap-2">
                     <FlaskConical className="w-4 h-4 text-navy-900" />
                     <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
-                      Паспорт вещества
+                      {isDishware ? 'Спецификация изделия' : 'Паспорт вещества'}
                     </span>
                   </div>
                   {!product.main_image_url && (
@@ -248,10 +256,12 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                   )}
                 </div>
 
-                {/* CAS Register */}
+                {/* CAS Register / Catalog Number */}
                 <div className="bg-white p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">CAS Реестр</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                      {isDishware || product.cas_number?.startsWith('Кат.') ? 'Каталожный номер' : 'CAS Реестр'}
+                    </div>
                     <div className="font-mono font-bold text-slate-900 text-sm mt-0.5">
                       {product.cas_number || '—'}
                     </div>
@@ -276,17 +286,21 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                   )}
                 </div>
 
-                {/* Formula & Purity */}
+                {/* Formula / Material & Purity / Parameters */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="bg-white p-3 rounded-xl border border-slate-200/80">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Формула</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                      {isDishware ? 'Материал' : 'Формула'}
+                    </div>
                     <div className="font-mono font-bold text-slate-900 text-sm mt-0.5 truncate">
                       {product.molecular_formula || '—'}
                     </div>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-slate-200/80">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Квалификация</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                      {isDishware ? 'Параметры' : 'Квалификация'}
+                    </div>
                     <div className="font-semibold text-navy-900 text-xs mt-0.5 truncate">
                       {product.purity || 'ЧДА'}
                     </div>
@@ -294,57 +308,68 @@ export const SpecificationDrawer: React.FC<SpecificationDrawerProps> = ({ produc
                 </div>
               </div>
 
-              {/* Quality & Safety Dossier (CoA / SDS) */}
-              <div className="space-y-2.5">
-                <div className="text-xs font-semibold text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-navy-900" />
-                  <span>Сопроводительные документы</span>
-                </div>
+              {/* Quality & Safety Dossier (CoA / SDS) - Hidden for Dishware */}
+              {!isDishware && (
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-navy-900" />
+                    <span>Сопроводительные документы</span>
+                  </div>
 
-                <div className="space-y-2">
-                  {/* SDS Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadDoc('sds')}
-                    disabled={downloadingDoc !== null}
-                    className="w-full p-3 bg-white border border-slate-200 hover:border-navy-300 rounded-xl text-left transition-all hover:shadow-xs group cursor-pointer flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-navy-50 flex items-center justify-center transition-colors">
-                        <FileText className="w-4 h-4 text-slate-600 group-hover:text-navy-900 transition-colors" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-900 text-xs group-hover:text-navy-900 transition-colors">
-                          Паспорт безопасности (SDS)
-                        </div>
-                        <div className="text-[10px] text-slate-400">Регламент РК • Формат PDF</div>
-                      </div>
-                    </div>
-                    <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-navy-900 transition-colors" />
-                  </button>
-
-                  {/* CoA Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadDoc('coa')}
-                    disabled={downloadingDoc !== null}
-                    className="w-full p-3 bg-white border border-slate-200 hover:border-navy-300 rounded-xl text-left transition-all hover:shadow-xs group cursor-pointer flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                        <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-900 text-xs group-hover:text-navy-900 transition-colors">
-                          Сертификат анализа (CoA)
-                        </div>
-                        <div className="text-[10px] text-emerald-600 font-medium">Заводской контроль партии</div>
-                      </div>
-                    </div>
-                    <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-navy-900 transition-colors" />
-                  </button>
+                  <div className="space-y-2">
+                    {([
+                      {
+                        type: 'sds' as const,
+                        title: 'Паспорт безопасности (SDS)',
+                        icon: <FileText className="w-4 h-4 text-slate-600 group-hover:text-navy-900 transition-colors" />,
+                        iconBg: 'bg-slate-100 group-hover:bg-navy-50',
+                      },
+                      {
+                        type: 'coa' as const,
+                        title: 'Сертификат анализа (CoA)',
+                        icon: <ShieldCheck className="w-4 h-4 text-emerald-700" />,
+                        iconBg: 'bg-emerald-50',
+                      },
+                    ]).map(doc => {
+                      const isRequested = requestedDocs.includes(doc.type);
+                      return (
+                        <button
+                          key={doc.type}
+                          type="button"
+                          onClick={() => handleRequestDoc(doc.type)}
+                          className="w-full p-3 bg-white border border-slate-200 hover:border-navy-300 rounded-xl text-left transition-all hover:shadow-xs group cursor-pointer flex items-center justify-between gap-3"
+                          title={`Отправить запрос на ${COMPANY_SELLER_DETAILS.email}`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${doc.iconBg}`}>
+                              {doc.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-900 text-xs group-hover:text-navy-900 transition-colors">
+                                {doc.title}
+                              </div>
+                              <div className={`text-[10px] ${isRequested ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
+                                {isRequested ? 'Письмо открыто в почтовом клиенте' : 'Предоставляется по запросу'}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 transition-colors ${
+                            isRequested
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-50 text-slate-700 border border-slate-200 group-hover:bg-navy-900 group-hover:text-white group-hover:border-navy-900'
+                          }`}>
+                            {isRequested ? <CheckCircle2 className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+                            <span>{isRequested ? 'Повторить' : 'Запросить'}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Документы выдаются на конкретную партию. Менеджер пришлёт их на вашу почту.
+                  </p>
                 </div>
-              </div>
+              )}
 
             </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Order } from '../types';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
+import { getLegalDocumentItemName } from '../utils/productLocalization';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
@@ -15,7 +16,8 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Loader2
+  Loader2,
+  Globe
 } from 'lucide-react';
 
 interface DocumentPreviewProps {
@@ -30,6 +32,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [docLang, setDocLang] = useState<'ru' | 'kz' | 'en'>('ru');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,27 +59,27 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
   const isInvoice = order.type === 'invoice';
   const isQuote = order.type === 'quote';
 
-  const docTitle = isInvoice
-    ? `Счет на оплату № ${order.orderNumber}`
-    : isQuote
-    ? `Коммерческое предложение № ${order.orderNumber}`
-    : `Заявка на поставку № ${order.orderNumber}`;
+  const docTitle = docLang === 'en'
+    ? (isInvoice ? `Commercial Invoice No. ${order.orderNumber}` : isQuote ? `Commercial Quotation No. ${order.orderNumber}` : `Purchase Order No. ${order.orderNumber}`)
+    : docLang === 'kz'
+    ? (isInvoice ? `Төлем шоты № ${order.orderNumber}` : isQuote ? `Коммерциялық ұсыныс № ${order.orderNumber}` : `Тауар жеткізуге өтінім № ${order.orderNumber}`)
+    : (isInvoice ? `Счет на оплату № ${order.orderNumber}` : isQuote ? `Коммерческое предложение № ${order.orderNumber}` : `Заявка на поставку № ${order.orderNumber}`);
 
-  const formattedDate = new Date(order.createdAt).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const formattedDate = docLang === 'en'
+    ? new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+    : docLang === 'kz'
+    ? `${new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} ж.`
+    : `${new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} г.`;
 
   const validUntilDate = order.validUntil
-    ? new Date(order.validUntil).toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
+    ? (docLang === 'en'
+        ? new Date(order.validUntil).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+        : docLang === 'kz'
+        ? `${new Date(order.validUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} ж.`
+        : `${new Date(order.validUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} г.`)
     : '';
 
-  const pdfFileName = `${docTitle} от ${formattedDate}`;
+  const pdfFileName = `${docTitle} (${formattedDate})`;
 
   const handlePrint = () => {
     const originalTitle = document.title;
@@ -198,7 +201,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
   };
 
   const handleOpenNativeMail = () => {
-    const target = recipientEmail.trim() || order.client.contactEmail || 'order@chemexpress.kz';
+    const target = recipientEmail.trim() || order.client.contactEmail || COMPANY_SELLER_DETAILS.email;
     const mailtoLink = `mailto:${encodeURIComponent(target)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
     const tempLink = document.createElement('a');
     tempLink.href = mailtoLink;
@@ -269,16 +272,60 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             </button>
           </div>
 
-          {/* Bottom Row: Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Bottom Row: Language Switcher + Action Buttons */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* Language Selector: RU (KZ standard) / KZ (State lang) / EN (International) */}
+            <div className="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-xl border border-slate-700/80">
+              <span className="text-[10px] text-slate-400 font-semibold px-1.5 flex items-center gap-1">
+                <Globe className="w-3 h-3 text-cyan-400" />
+                <span style={{lineHeight:0}}>Язык документа:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setDocLang('ru')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  docLang === 'ru'
+                    ? 'bg-cyan-600 text-white shadow-2xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Официальный формат РК на русском языке (по закону РК)"
+              >
+                Русский
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocLang('kz')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  docLang === 'kz'
+                    ? 'bg-cyan-600 text-white shadow-2xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Қазақ тіліндегі ресми бланкі"
+              >
+                Қазақша
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocLang('en')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  docLang === 'en'
+                    ? 'bg-cyan-600 text-white shadow-2xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="International Commercial Format in English"
+              >
+                English
+              </button>
+            </div>
 
-            <button
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Печать А4</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Печать А4</span>
+              </button>
 
             <button
               onClick={handleDownloadPdf}
@@ -308,6 +355,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             </button>
           </div>
         </div>
+      </div>
 
         {/* Printable Document Sheet (Strict A4 Accounting Standard) */}
         <div id="print-document-sheet" className="p-5 sm:p-7 overflow-y-auto flex-1 text-gray-900 bg-white font-sans text-xs leading-normal select-text print-document-sheet print:p-0 print:m-0 print:overflow-visible print:max-h-none print:border-none print:shadow-none">
@@ -381,11 +429,12 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           {/* Document Header Title */}
           <div className="border-b-2 border-gray-900 pb-2 mb-3 flex items-baseline justify-between">
             <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">
-              {docTitle} от {formattedDate.endsWith('г.') ? formattedDate : `${formattedDate} г.`}
+              {docTitle} {docLang === 'en' ? `dated ${formattedDate}` : `${docLang === 'kz' ? 'күні' : 'от'} ${formattedDate}`}
             </h1>
             {validUntilDate && (
               <span className="text-xs text-gray-600 font-medium">
-                Действителен до: <strong className="font-mono text-gray-900">{validUntilDate}</strong> (5 дней)
+                {docLang === 'en' ? 'Valid until:' : docLang === 'kz' ? 'Жарамдылық мерзімі:' : 'Действителен до:'}{' '}
+                <strong className="font-mono text-gray-900">{validUntilDate}</strong> ({docLang === 'en' ? '5 days' : docLang === 'kz' ? '5 күн' : '5 дней'})
               </span>
             )}
           </div>
@@ -393,43 +442,52 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           {/* Supplier & Customer details */}
           <div className="space-y-2 mb-5 text-xs">
             <div className="grid grid-cols-12 gap-2">
-              <span className="col-span-2 font-bold text-gray-700">Поставщик:</span>
+              <span className="col-span-2 font-bold text-gray-700">
+                {docLang === 'en' ? 'Supplier:' : docLang === 'kz' ? 'Жеткізуші (Сатушы):' : 'Поставщик:'}
+              </span>
               <div className="col-span-10 text-gray-900 leading-snug">
-                <strong>{COMPANY_SELLER_DETAILS.name}</strong>, БИН: {COMPANY_SELLER_DETAILS.bin}, ОКЭД: {COMPANY_SELLER_DETAILS.oked}, {COMPANY_SELLER_DETAILS.legalAddress}, тел.: {COMPANY_SELLER_DETAILS.phone}
+                <strong>{COMPANY_SELLER_DETAILS.name}</strong>, {docLang === 'en' ? 'BIN' : 'БИН'}: {COMPANY_SELLER_DETAILS.bin}, {docLang === 'en' ? 'OKED' : 'ОКЭД'}: {COMPANY_SELLER_DETAILS.oked}, {COMPANY_SELLER_DETAILS.legalAddress}, {docLang === 'en' ? 'tel.' : 'тел.'}: {COMPANY_SELLER_DETAILS.phone}
               </div>
             </div>
 
             <div className="grid grid-cols-12 gap-2">
-              <span className="col-span-2 font-bold text-gray-700">Покупатель:</span>
+              <span className="col-span-2 font-bold text-gray-700">
+                {docLang === 'en' ? 'Customer / Buyer:' : docLang === 'kz' ? 'Сатып алушы:' : 'Покупатель:'}
+              </span>
               <div className="col-span-10 text-gray-900 leading-snug">
-                <strong>{order.client.companyName}</strong>, БИН {order.client.bin}, {order.client.deliveryAddress}
-                {order.client.contactPhone && `, тел.: ${order.client.contactPhone}`}
+                <strong>{order.client.companyName}</strong>, {docLang === 'en' ? 'BIN' : 'БИН'} {order.client.bin}, {order.client.deliveryAddress}
+                {order.client.contactPhone && `, ${docLang === 'en' ? 'tel.' : 'тел.'}: ${order.client.contactPhone}`}
                 {order.client.contactEmail && `, email: ${order.client.contactEmail}`}
               </div>
             </div>
 
             {/* Delivery Terms & Dispatch Info */}
             <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200">
-              <span className="col-span-2 font-bold text-gray-700">Условия доставки:</span>
+              <span className="col-span-2 font-bold text-gray-700">
+                {docLang === 'en' ? 'Delivery Terms:' : docLang === 'kz' ? 'Жеткізу шарттары:' : 'Условия доставки:'}
+              </span>
               <div className="col-span-10 text-gray-900 leading-snug">
                 {order.isManagerConfirmed ? (
                   <div className="space-y-0.5">
                     <div>
-                      Адрес доставки: <strong>{order.deliveryAddress || order.client.deliveryAddress || 'По согласованию с заказчиком'}</strong>
+                      {docLang === 'en' ? 'Delivery Address:' : docLang === 'kz' ? 'Жеткізу мекенжайы:' : 'Адрес доставки:'}{' '}
+                      <strong>{order.deliveryAddress || order.client.deliveryAddress || (docLang === 'en' ? 'As agreed with customer' : docLang === 'kz' ? 'Тапсырыс берушімен келісім бойынша' : 'По согласованию с заказчиком')}</strong>
                     </div>
                     <div className="text-[11px] text-gray-600">
-                      Срок поставки: <strong className="text-gray-900">{order.deliveryDays || '1-3 рабочих дня (со склада)'}</strong>
+                      {docLang === 'en' ? 'Delivery time:' : docLang === 'kz' ? 'Жеткізу мерзімі:' : 'Срок поставки:'}{' '}
+                      <strong className="text-gray-900">{order.deliveryDays || (docLang === 'en' ? '1-3 business days (ex stock)' : docLang === 'kz' ? '1-3 жұмыс күні (қоймадан)' : '1-3 рабочих дня (со склада)')}</strong>
                       {' • '}
-                      Доставка: <strong className="text-gray-900">
+                      {docLang === 'en' ? 'Delivery:' : docLang === 'kz' ? 'Жеткізу:' : 'Доставка:'}{' '}
+                      <strong className="text-gray-900">
                         {order.deliveryCostKzt && order.deliveryCostKzt > 0 
                           ? `${order.deliveryCostKzt.toLocaleString('ru-RU')} ₸` 
-                          : 'Включена в стоимость (Бесплатно)'}
+                          : (docLang === 'en' ? 'Included in price (Free)' : docLang === 'kz' ? 'Құнға кіреді (Тегін)' : 'Включена в стоимость (Бесплатно)')}
                       </strong>
                     </div>
                   </div>
                 ) : (
                   <div className="text-amber-800 bg-amber-50/70 p-1.5 rounded border border-amber-200 text-[11px] leading-relaxed">
-                    <strong>Предварительный расчет (без учета логистики):</strong> адрес: {order.client.deliveryAddress || 'Уточняется'}. Точный срок и стоимость доставки рассчитываются менеджером по продажам перед утверждением заказа.
+                    <strong>{docLang === 'en' ? 'Preliminary estimate (excl. logistics):' : docLang === 'kz' ? 'Алдын ала есеп (логистикасыз):' : 'Предварительный расчет (без учета логистики):'}</strong> {docLang === 'en' ? 'Address:' : docLang === 'kz' ? 'Мекенжай:' : 'адрес:'} {order.client.deliveryAddress || (docLang === 'en' ? 'TBD' : 'Уточняется')}. {docLang === 'en' ? 'Final delivery terms and costs will be finalized by manager upon confirmation.' : docLang === 'kz' ? 'Жеткізу мерзімі мен құнын тапсырысты растау алдында менеджер есептейді.' : 'Точный срок и стоимость доставки рассчитываются менеджером по продажам перед утверждением заказа.'}
                   </div>
                 )}
               </div>
@@ -440,18 +498,22 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           <table className="w-full border-collapse border border-gray-900 mb-4 text-[11px]">
             <thead>
               <tr className="bg-gray-100 font-bold border-b border-gray-900 text-center">
-                <th className="border border-gray-900 p-1.5 w-8">№</th>
-                <th className="border border-gray-900 p-1.5 w-24">Артикул</th>
-                <th className="border border-gray-900 p-1.5 text-left">Товары (реактивы, материалы)</th>
-                <th className="border border-gray-900 p-1.5 w-16">Кол-во</th>
-                <th className="border border-gray-900 p-1.5 w-12">Ед.</th>
-                <th className="border border-gray-900 p-1.5 w-24 text-right">Цена, ₸</th>
-                <th className="border border-gray-900 p-1.5 w-28 text-right">Сумма, ₸</th>
+                <th className="border border-gray-900 p-1.5 w-8">{docLang === 'en' ? 'No.' : '№'}</th>
+                <th className="border border-gray-900 p-1.5 w-24">{docLang === 'en' ? 'SKU / Code' : 'Артикул'}</th>
+                <th className="border border-gray-900 p-1.5 text-left">
+                  {docLang === 'en' ? 'Products & Chemical Reagents' : docLang === 'kz' ? 'Тауарлар (реактивтер, материалдар)' : 'Товары (реактивы, материалы)'}
+                </th>
+                <th className="border border-gray-900 p-1.5 w-16">{docLang === 'en' ? 'Qty' : docLang === 'kz' ? 'Саны' : 'Кол-во'}</th>
+                <th className="border border-gray-900 p-1.5 w-12">{docLang === 'en' ? 'Unit' : docLang === 'kz' ? 'Өлшем' : 'Ед.'}</th>
+                <th className="border border-gray-900 p-1.5 w-24 text-right">{docLang === 'en' ? 'Price, ₸' : docLang === 'kz' ? 'Бағасы, ₸' : 'Цена, ₸'}</th>
+                <th className="border border-gray-900 p-1.5 w-28 text-right">{docLang === 'en' ? 'Total, ₸' : docLang === 'kz' ? 'Сомасы, ₸' : 'Сумма, ₸'}</th>
               </tr>
             </thead>
             <tbody>
               {order.items.map((item, index) => {
                 const sumRow = item.priceKzt * item.quantity;
+                const { officialTitle, internationalSubtitle } = getLegalDocumentItemName(item, docLang);
+
                 return (
                   <tr key={item.productId} className="border-b border-gray-300">
                     <td className="border border-gray-900 p-1.5 text-center font-mono">{index + 1}</td>
@@ -459,16 +521,16 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                       {item.sku}
                     </td>
                     <td className="border border-gray-900 p-1.5 text-gray-900">
-                      <div className="font-semibold leading-snug">{item.name}</div>
+                      <div className="font-semibold leading-snug">{officialTitle}</div>
+                      {internationalSubtitle && (
+                        <div className="text-[10px] text-gray-600 font-normal mt-0.5 font-mono">
+                          {internationalSubtitle}
+                        </div>
+                      )}
                       <div className="text-[10px] text-gray-500 font-normal mt-0.5 flex flex-wrap items-center gap-x-2">
-                        <span>Фасовка: {item.packaging || '1 шт'}</span>
-                        {item.casNumber && item.casNumber !== 'N/A' && (
-                          <span>
-                            • {item.casNumber.startsWith('Кат.') || item.casNumber.startsWith('Cat.') ? item.casNumber : `CAS: ${item.casNumber}`}
-                          </span>
-                        )}
+                        <span>{docLang === 'en' ? 'Packaging:' : docLang === 'kz' ? 'Қаптамасы:' : 'Фасовка:'} {item.packaging || '1 шт'}</span>
                         {item.brand && (
-                          <span>• Бренд: {item.brand}</span>
+                          <span>• {docLang === 'en' ? 'Brand:' : docLang === 'kz' ? 'Бренд:' : 'Бренд:'} {item.brand}</span>
                         )}
                       </div>
                     </td>
@@ -476,7 +538,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                       {item.quantity}
                     </td>
                     <td className="border border-gray-900 p-1.5 text-center">
-                      шт
+                      {docLang === 'en' ? 'pcs' : docLang === 'kz' ? 'дн' : 'шт'}
                     </td>
                     <td className="border border-gray-900 p-1.5 text-right font-mono">
                       {item.priceKzt.toLocaleString('ru-RU')}
@@ -497,42 +559,60 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
                 {isVat16 ? (
                   <>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого товары без НДС:</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">
+                        {docLang === 'en' ? 'Items total (excl. VAT):' : docLang === 'kz' ? 'ҚҚС-сыз тауарлар сомасы:' : 'Итого товары без НДС:'}
+                      </td>
                       <td className="py-1 font-bold text-gray-900">{order.subtotalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">В том числе НДС (16%):</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">
+                        {docLang === 'en' ? 'VAT (16%):' : docLang === 'kz' ? 'ҚҚС (16%):' : 'В том числе НДС (16%):'}
+                      </td>
                       <td className="py-1 font-bold text-gray-900">{order.vatKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                     {order.deliveryCostKzt && order.deliveryCostKzt > 0 ? (
                       <tr>
-                        <td className="py-1 pr-4 font-semibold text-gray-600">Доставка:</td>
+                        <td className="py-1 pr-4 font-semibold text-gray-600">
+                          {docLang === 'en' ? 'Delivery:' : docLang === 'kz' ? 'Жеткізу:' : 'Доставка:'}
+                        </td>
                         <td className="py-1 font-bold text-gray-900">{order.deliveryCostKzt.toLocaleString('ru-RU')} ₸</td>
                       </tr>
                     ) : null}
                     <tr className="border-t border-gray-900 text-sm">
-                      <td className="py-1.5 pr-4 font-bold text-gray-900">Всего к оплате с НДС:</td>
+                      <td className="py-1.5 pr-4 font-bold text-gray-900">
+                        {docLang === 'en' ? 'Total with VAT:' : docLang === 'kz' ? 'ҚҚС-пен барлық төлем:' : 'Всего к оплате с НДС:'}
+                      </td>
                       <td className="py-1.5 font-black text-gray-900">{order.totalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                   </>
                 ) : (
                   <>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">Итого по товарам:</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">
+                        {docLang === 'en' ? 'Items total:' : docLang === 'kz' ? 'Тауарлар бойынша барлығы:' : 'Итого по товарам:'}
+                      </td>
                       <td className="py-1 font-bold text-gray-900">{order.subtotalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                     <tr>
-                      <td className="py-1 pr-4 font-semibold text-gray-600">НДС:</td>
-                      <td className="py-1 font-semibold text-gray-700">Без НДС (ИП на ОУР)</td>
+                      <td className="py-1 pr-4 font-semibold text-gray-600">
+                        {docLang === 'en' ? 'VAT:' : docLang === 'kz' ? 'ҚҚС:' : 'НДС:'}
+                      </td>
+                      <td className="py-1 font-semibold text-gray-700">
+                        {docLang === 'en' ? 'VAT Exempt (General Tax Regime)' : docLang === 'kz' ? 'ҚҚС-сыз (ЖСР режимі)' : 'Без НДС (ИП на ОУР)'}
+                      </td>
                     </tr>
                     {order.deliveryCostKzt && order.deliveryCostKzt > 0 ? (
                       <tr>
-                        <td className="py-1 pr-4 font-semibold text-gray-600">Доставка:</td>
+                        <td className="py-1 pr-4 font-semibold text-gray-600">
+                          {docLang === 'en' ? 'Delivery:' : docLang === 'kz' ? 'Жеткізу:' : 'Доставка:'}
+                        </td>
                         <td className="py-1 font-bold text-gray-900">{order.deliveryCostKzt.toLocaleString('ru-RU')} ₸</td>
                       </tr>
                     ) : null}
                     <tr className="border-t border-gray-900 text-sm">
-                      <td className="py-1.5 pr-4 font-bold text-gray-900">Всего к оплате:</td>
+                      <td className="py-1.5 pr-4 font-bold text-gray-900">
+                        {docLang === 'en' ? 'Total Due:' : docLang === 'kz' ? 'Төлеуге барлығы:' : 'Всего к оплате:'}
+                      </td>
                       <td className="py-1.5 font-black text-gray-900">{order.totalKzt.toLocaleString('ru-RU')} ₸</td>
                     </tr>
                   </>
@@ -544,16 +624,25 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           {/* In-Words Text Summary */}
           <div className="border-t border-gray-300 pt-2.5 mb-4 text-xs">
             <p className="text-gray-800">
-              Всего наименований <strong>{order.items.length}</strong>, на сумму <strong>{order.totalKzt.toLocaleString('ru-RU')} KZT</strong> {isVat16 ? '(в т.ч. НДС 16%)' : '(Без НДС)'}.
+              {docLang === 'en'
+                ? `Total items: ${order.items.length}, total amount: ${order.totalKzt.toLocaleString('ru-RU')} KZT ${isVat16 ? '(incl. VAT 16%)' : '(VAT exempt)'}.`
+                : docLang === 'kz'
+                ? `Барлық атаулар саны: ${order.items.length}, жалпы сомасы: ${order.totalKzt.toLocaleString('ru-RU')} KZT ${isVat16 ? '(ҚҚС 16% қоса)' : '(ҚҚС-сыз)'}.`
+                : `Всего наименований: ${order.items.length}, на сумму: ${order.totalKzt.toLocaleString('ru-RU')} KZT ${isVat16 ? '(в т.ч. НДС 16%)' : '(Без НДС)'}.`}
             </p>
             {isQuote && !order.isManagerConfirmed && (
               <p className="text-gray-900 mt-2 text-[11px] leading-relaxed">
-                <strong>Примечание:</strong> Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером.
+                <strong>{docLang === 'en' ? 'Note:' : docLang === 'kz' ? 'Ескертпе:' : 'Примечание:'}</strong>{' '}
+                {docLang === 'en'
+                  ? 'Delivery cost is not included in the quote prices. Final shipping costs and timeline are confirmed with manager before dispatch.'
+                  : docLang === 'kz'
+                  ? 'Жеткізу құны бағаға кірмеген. Жеткізу шарттары мен құнын төлеу алдында менеджермен келісу қажет.'
+                  : 'Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером.'}
               </p>
             )}
             {order.clientMessage && (
               <p className="text-gray-600 mt-1.5 italic text-[11px]">
-                Примечание заказчика: {order.clientMessage}
+                {docLang === 'en' ? 'Customer comment:' : docLang === 'kz' ? 'Тапсырыс берушінің ескертпесі:' : 'Примечание заказчика:'} {order.clientMessage}
               </p>
             )}
           </div>
