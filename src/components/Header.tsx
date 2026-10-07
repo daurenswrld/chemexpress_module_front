@@ -4,17 +4,16 @@ import {
   Phone, 
   MapPin, 
   ShoppingBag, 
-  ExternalLink,
-  Clock,
-  Mail,
-  ArrowLeft,
-  FlaskConical,
-  TestTube2,
-  Boxes,
-  FileText,
-  ShieldCheck,
-  ShieldAlert,
-  User
+  Clock, 
+  Mail, 
+  ArrowLeft, 
+  FlaskConical, 
+  TestTube2, 
+  Boxes, 
+  FileText, 
+  ShieldCheck, 
+  ShieldAlert, 
+  User 
 } from 'lucide-react';
 import { COMPANY_SELLER_DETAILS } from '../data/mockData';
 
