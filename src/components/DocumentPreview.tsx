@@ -25,6 +25,53 @@ interface DocumentPreviewProps {
   onClose: () => void;
 }
 
+const KZ_MONTHS = [
+  'қаңтар',
+  'ақпан',
+  'наурыз',
+  'сәуір',
+  'мамыр',
+  'маусым',
+  'шілде',
+  'тамыз',
+  'қыркүйек',
+  'қазан',
+  'қараша',
+  'желтоқсан',
+];
+
+const RU_MONTHS = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+
+const formatDocumentDate = (dateInput: string | Date | undefined, lang: 'ru' | 'kz' | 'en'): string => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+
+  const day = d.getDate();
+  const year = d.getFullYear();
+
+  if (lang === 'kz') {
+    return `${day} ${KZ_MONTHS[d.getMonth()]} ${year} ж.`;
+  }
+  if (lang === 'en') {
+    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return `${day} ${RU_MONTHS[d.getMonth()]} ${year} г.`;
+};
+
 export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose }) => {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState(order.client.contactEmail || '');
@@ -65,19 +112,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
     ? (isInvoice ? `Төлем шоты № ${order.orderNumber}` : isQuote ? `Коммерциялық ұсыныс № ${order.orderNumber}` : `Тауар жеткізуге өтінім № ${order.orderNumber}`)
     : (isInvoice ? `Счет на оплату № ${order.orderNumber}` : isQuote ? `Коммерческое предложение № ${order.orderNumber}` : `Заявка на поставку № ${order.orderNumber}`);
 
-  const formattedDate = docLang === 'en'
-    ? new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-    : docLang === 'kz'
-    ? `${new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} ж.`
-    : `${new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} г.`;
-
-  const validUntilDate = order.validUntil
-    ? (docLang === 'en'
-        ? new Date(order.validUntil).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-        : docLang === 'kz'
-        ? `${new Date(order.validUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} ж.`
-        : `${new Date(order.validUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} г.`)
-    : '';
+  const formattedDate = formatDocumentDate(order.createdAt, docLang);
+  const validUntilDate = order.validUntil ? formatDocumentDate(order.validUntil, docLang) : '';
 
   const pdfFileName = `${docTitle} (${formattedDate})`;
 
@@ -427,15 +463,23 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
           )}
 
           {/* Document Header Title */}
-          <div className="border-b-2 border-gray-900 pb-2 mb-3 flex items-baseline justify-between">
-            <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">
-              {docTitle} {docLang === 'en' ? `dated ${formattedDate}` : `${docLang === 'kz' ? 'күні' : 'от'} ${formattedDate}`}
+          <div className="border-b-2 border-gray-900 pb-3 mb-4 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+            <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight leading-snug">
+              <span>{docTitle}</span>{' '}
+              <span className="whitespace-nowrap font-bold text-gray-800">
+                {docLang === 'en' ? `dated ${formattedDate}` : `${docLang === 'kz' ? 'күні' : 'от'} ${formattedDate}`}
+              </span>
             </h1>
             {validUntilDate && (
-              <span className="text-xs text-gray-600 font-medium">
-                {docLang === 'en' ? 'Valid until:' : docLang === 'kz' ? 'Жарамдылық мерзімі:' : 'Действителен до:'}{' '}
-                <strong className="font-mono text-gray-900">{validUntilDate}</strong> ({docLang === 'en' ? '5 days' : docLang === 'kz' ? '5 күн' : '5 дней'})
-              </span>
+              <div className="text-xs text-gray-600 font-medium shrink-0 whitespace-nowrap ml-auto pt-0.5">
+                <span className="text-gray-500">
+                  {docLang === 'en' ? 'Valid until:' : docLang === 'kz' ? 'Жарамдылық мерзімі:' : 'Действителен до:'}
+                </span>{' '}
+                <strong className="font-mono text-gray-900 font-bold ml-1">{validUntilDate}</strong>
+                <span className="text-gray-500 ml-1.5 font-normal">
+                  ({docLang === 'en' ? '5 days' : docLang === 'kz' ? '5 күн' : '5 дней'})
+                </span>
+              </div>
             )}
           </div>
 
@@ -652,13 +696,37 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             <div className="mb-5 print:mb-2 p-3 print:p-2 rounded-lg border text-[11px] leading-relaxed select-text">
               {order.isManagerConfirmed ? (
                 <div className="bg-emerald-50/70 border-emerald-300 text-emerald-950 p-2.5 rounded">
-                  <div className="font-bold mb-0.5">Статус: коммерческое предложение подтверждено менеджером.</div>
-                  <div>Наличие и сроки актуальны на момент подтверждения. Товар не резервируется до поступления оплаты, если иное не согласовано письменно.</div>
+                  <div className="font-bold mb-0.5">
+                    {docLang === 'en' 
+                      ? 'Status: quotation confirmed by manager.'
+                      : docLang === 'kz'
+                      ? 'Мәртебесі: коммерциялық ұсынысты менеджер растады.'
+                      : 'Статус: коммерческое предложение подтверждено менеджером.'}
+                  </div>
+                  <div>
+                    {docLang === 'en'
+                      ? 'Availability and terms are actual at confirmation. Goods are not reserved until payment is received unless agreed in writing.'
+                      : docLang === 'kz'
+                      ? 'Тауардың қолжетімділігі мен мерзімдері расталған сәтте өзекті. Жазбаша келісілмесе, төлем түскенге дейін тауар брондалмайды.'
+                      : 'Наличие и сроки актуальны на момент подтверждения. Товар не резервируется до поступления оплаты, если иное не согласовано письменно.'}
+                  </div>
                 </div>
               ) : (
                 <div className="bg-amber-50/70 border-amber-300 text-amber-950 p-2.5 rounded">
-                  <div className="font-bold mb-0.5">Статус: предварительное коммерческое предложение.</div>
-                  <div>Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.</div>
+                  <div className="font-bold mb-0.5">
+                    {docLang === 'en'
+                      ? 'Status: preliminary commercial quotation.'
+                      : docLang === 'kz'
+                      ? 'Мәртебесі: алдын ала коммерциялық ұсыныс.'
+                      : 'Статус: предварительное коммерческое предложение.'}
+                  </div>
+                  <div>
+                    {docLang === 'en'
+                      ? 'The document is generated automatically and not yet approved by sales manager. Shipping cost is not included in prices. Prices and availability are subject to confirmation.'
+                      : docLang === 'kz'
+                      ? 'Құжат автоматты түрде жасалған және менеджермен бекітілмеген. Жеткізу құны бағаға кірмеген. Көрсетілген бағалар, қолжетімділік және жеткізу мерзімдері расталуы тиіс.'
+                      : 'Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Стоимость доставки в указанные цены не включена. Стоимость и условия доставки необходимо согласовать с менеджером. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.'}
+                  </div>
                 </div>
               )}
             </div>
@@ -668,13 +736,37 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             <div className="mb-5 print:mb-2 p-3 print:p-2 rounded-lg border text-[11px] leading-relaxed select-text">
               {!order.isManagerConfirmed ? (
                 <div className="bg-amber-50/70 border-amber-300 text-amber-950 p-2.5 rounded">
-                  <div className="font-bold mb-0.5">Статус: предварительный счёт на оплату.</div>
-                  <div>Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Срок действия счёта: 5 календарных дней. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.</div>
+                  <div className="font-bold mb-0.5">
+                    {docLang === 'en'
+                      ? 'Status: preliminary payment invoice.'
+                      : docLang === 'kz'
+                      ? 'Мәртебесі: алдын ала төлем шоты.'
+                      : 'Статус: предварительный счёт на оплату.'}
+                  </div>
+                  <div>
+                    {docLang === 'en'
+                      ? 'The document is generated automatically. Validity period: 5 calendar days. Prices and availability are subject to confirmation.'
+                      : docLang === 'kz'
+                      ? 'Құжат автоматты түрде жасалған және менеджермен бекітілмеген. Шоттың жарамдылық мерзімі: 5 күнтізбелік күн. Көрсетілген бағалар, қолжетімділік және жеткізу мерзімдері расталуы тиіс.'
+                      : 'Документ сформирован автоматически и не утвержден менеджером по продажам/РОП. Срок действия счёта: 5 календарных дней. Указанные цены, наличие и сроки поставки подлежат подтверждению. Товар не резервируется до подтверждения заказа и поступления оплаты.'}
+                  </div>
                 </div>
               ) : (
                 <div className="bg-emerald-50/70 border-emerald-300 text-emerald-950 p-2.5 rounded">
-                  <div className="font-bold mb-0.5">Статус: счёт на оплату подтвержден менеджером.</div>
-                  <div>Срок действия счёта: 5 календарных дней. Товар резервируется после поступления оплаты на расчётный счёт, если иное не согласовано письменно.</div>
+                  <div className="font-bold mb-0.5">
+                    {docLang === 'en'
+                      ? 'Status: invoice confirmed by manager.'
+                      : docLang === 'kz'
+                      ? 'Мәртебесі: төлем шотын менеджер растады.'
+                      : 'Статус: счёт на оплату подтвержден менеджером.'}
+                  </div>
+                  <div>
+                    {docLang === 'en'
+                      ? 'Invoice validity: 5 calendar days. Goods are reserved after payment arrives to bank account.'
+                      : docLang === 'kz'
+                      ? 'Шоттың жарамдылық мерзімі: 5 күнтізбелік күн. Тауар банктік есеп айырысу шотына төлем түскеннен кейін брондалады.'
+                      : 'Срок действия счёта: 5 календарных дней. Товар резервируется после поступления оплаты на расчётный счёт, если иное не согласовано письменно.'}
+                  </div>
                 </div>
               )}
             </div>
@@ -685,22 +777,30 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ order, onClose
             <div className="grid grid-cols-2 gap-8 items-end">
               <div>
                 <div className="flex items-baseline justify-between border-b border-gray-900 pb-1 mb-1">
-                  <span className="font-semibold text-xs">Руководитель (ИП):</span>
+                  <span className="font-semibold text-xs">
+                    {docLang === 'en' ? 'Director (Sole Prop.):' : docLang === 'kz' ? 'Басшы (ЖК):' : 'Руководитель (ИП):'}
+                  </span>
                   <span className="font-medium text-xs font-serif italic text-gray-800">
                     {COMPANY_SELLER_DETAILS.directorName}
                   </span>
                 </div>
-                <span className="text-[9px] text-gray-400 block text-right">подпись / расшифровка подписи</span>
+                <span className="text-[9px] text-gray-400 block text-right">
+                  {docLang === 'en' ? 'signature / full name' : docLang === 'kz' ? 'қолы / қолды таратып жазу' : 'подпись / расшифровка подписи'}
+                </span>
               </div>
 
               <div>
                 <div className="flex items-baseline justify-between border-b border-gray-900 pb-1 mb-1">
-                  <span className="font-semibold text-xs">Главный бухгалтер:</span>
+                  <span className="font-semibold text-xs">
+                    {docLang === 'en' ? 'Chief Accountant:' : docLang === 'kz' ? 'Бас бухгалтер:' : 'Главный бухгалтер:'}
+                  </span>
                   <span className="font-medium text-xs text-gray-600 italic">
                     {COMPANY_SELLER_DETAILS.chiefAccountantName}
                   </span>
                 </div>
-                <span className="text-[9px] text-gray-400 block text-right">для ИП не предусмотрен законодательством РК</span>
+                <span className="text-[9px] text-gray-400 block text-right">
+                  {docLang === 'en' ? 'not required for sole prop. by RK law' : docLang === 'kz' ? 'ҚР заңнамасы бойынша ЖК үшін көзделмеген' : 'для ИП не предусмотрен законодательством РК'}
+                </span>
               </div>
             </div>
 

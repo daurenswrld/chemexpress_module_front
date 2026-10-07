@@ -132,7 +132,7 @@ export const App: React.FC = () => {
   if (isStaffWorkspace) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-navy-900 selection:text-white">
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 pt-0 sm:pt-1 pb-6">
           {currentView === 'manager' ? (
             <Admin1CWorkstation />
           ) : (

@@ -108,6 +108,9 @@ interface AppState {
       items?: OrderItem[];
     }
   ) => void;
+  convertQuoteToInvoice: (orderId: string) => void;
+  convertRequestToQuote: (orderId: string) => void;
+  cancelOrder: (orderId: string) => void;
 
   // Document preview modal
   previewOrder: Order | null;
@@ -383,6 +386,285 @@ export const DEMO_ORDERS: Order[] = [
     createdById: 'usr-client-3',
     organizationBin: '140540023456',
   },
+  {
+    id: 'ord-demo-6310',
+    orderNumber: 'CX-2026-6310',
+    type: 'invoice',
+    status: 'paid',
+    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+    validUntil: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    paidAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    client: {
+      bin: '180240034567',
+      companyName: 'ТОО "КазМунайАналитика"',
+      kbe: '17',
+      iik: 'KZ556010002008765432',
+      bik: 'HSBKKZKX',
+      bankName: 'АО "Народный Банк Казахстана"',
+      contactName: 'Руслан Ахметов',
+      contactPhone: '+7 (702) 555-12-89',
+      contactEmail: 'r.akhmetov@kma-lab.kz',
+      deliveryAddress: 'г. Атырау, промзона Карабатан, Лабораторный корпус 4',
+    },
+    items: [
+      {
+        productId: 741192,
+        sku: 'MKL-A801235-4L',
+        name: 'Ацетонитрил для ВЭЖХ особой чистоты Ultra Gradient',
+        casNumber: '75-05-8',
+        brand: 'Macklin',
+        packaging: '4.0L',
+        quantity: 4,
+        priceKzt: 42000,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+      {
+        productId: 1,
+        sku: 'TCI-E0297-25G',
+        name: '1-этинил-1-циклогексанол',
+        casNumber: '78-27-3',
+        brand: 'TCI',
+        packaging: '25g',
+        quantity: 2,
+        priceKzt: 19800,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 207600,
+    vatKzt: 0,
+    totalKzt: 219600,
+    deliveryCostKzt: 12000,
+    deliveryDays: '3-5 рабочих дней (по РК)',
+    deliveryAddress: 'г. Атырау, промзона Карабатан, Лабораторный корпус 4',
+    vatMode: 'none',
+    isManagerConfirmed: true,
+    managerComment: 'Оплата поступила по счету. Товар зарезервирован на Центральном складе Алматы, комплектуется к отправке курьерской службой.',
+    createdById: 'usr-client-2',
+    organizationBin: '180240034567',
+  },
+  {
+    id: 'ord-demo-5120',
+    orderNumber: 'CX-2026-5120',
+    type: 'quote',
+    status: 'quote_sent',
+    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+    validUntil: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    client: {
+      bin: '190440098765',
+      companyName: 'ТОО "КазБиоФарм"',
+      kbe: '17',
+      iik: 'KZ927050001009876543',
+      bik: 'CASPKZKA',
+      bankName: 'АО "Kaspi Bank"',
+      contactName: 'Сауле Ибраева',
+      contactPhone: '+7 (775) 432-11-22',
+      contactEmail: 'procure@kazbiopharm.kz',
+      deliveryAddress: 'г. Караганда, ул. Ермекова, 45',
+    },
+    items: [
+      {
+        productId: 201,
+        sku: 'SW-F2440-500',
+        name: 'Колба круглодонная со шлифом 24/40, 500 мл (Боросиликатное стекло 3.3)',
+        casNumber: 'BORO-3.3-GLASS',
+        brand: 'Synthware',
+        packaging: '500 ml',
+        quantity: 6,
+        priceKzt: 14500,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 87000,
+    vatKzt: 0,
+    totalKzt: 87000,
+    vatMode: 'none',
+    isManagerConfirmed: false,
+    clientMessage: 'Просьба согласовать возможность скидки 5% при заказе от 10 штук.',
+    createdById: 'usr-client-4',
+    organizationBin: '190440098765',
+  },
+  {
+    id: 'ord-demo-4099',
+    orderNumber: 'CX-2026-4099',
+    type: 'request',
+    status: 'draft',
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    client: {
+      bin: '050340056789',
+      companyName: 'РГП на ПХВ "Национальный центр экспертизы"',
+      kbe: '16',
+      iik: 'KZ126010002001122334',
+      bik: 'HSBKKZKX',
+      bankName: 'АО "Народный Банк Казахстана"',
+      contactName: 'Марат Оспанов',
+      contactPhone: '+7 (701) 987-65-43',
+      contactEmail: 'expert@nce.gov.kz',
+      deliveryAddress: 'г. Астана, ул. Желтоксан, 46',
+    },
+    items: [
+      {
+        productId: 301,
+        sku: 'TCI-SPEC-ANALYTIC',
+        name: 'Стандарт аналитический высокой чистоты (>99.8%) для хромато-масс-спектрометрии',
+        casNumber: 'SPEC-GCMS-TCI',
+        brand: 'TCI',
+        packaging: '5 x 1 ml',
+        quantity: 2,
+        priceKzt: 72500,
+        vatRate: 0,
+        warehouseId: 'wh-spec-chem',
+      },
+    ],
+    subtotalKzt: 145000,
+    vatKzt: 0,
+    totalKzt: 145000,
+    vatMode: 'none',
+    isManagerConfirmed: false,
+    clientMessage: 'Запрос на подбор чистого стандарта TCI с паспортом CoA партии. Срочная потребность под проект.',
+    createdById: 'usr-client-5',
+    organizationBin: '050340056789',
+  },
+  {
+    id: 'ord-demo-2901',
+    orderNumber: 'CX-2026-2901',
+    type: 'invoice',
+    status: 'shipped',
+    createdAt: new Date(Date.now() - 3600000 * 96).toISOString(),
+    paidAt: new Date(Date.now() - 3600000 * 72).toISOString(),
+    shippedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    client: {
+      bin: '080140012345',
+      companyName: 'ТОО "КазХимСинтез"',
+      kbe: '17',
+      iik: 'KZ456010002003456789',
+      bik: 'HSBKKZKX',
+      bankName: 'АО "Народный Банк Казахстана"',
+      contactName: 'Алексей Бережной',
+      contactPhone: '+7 (701) 450-89-22',
+      contactEmail: 'procurement@kazchimsynthez.kz',
+      deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
+    },
+    items: [
+      {
+        productId: 741192,
+        sku: 'MKL-A801235-4L',
+        name: 'Ацетонитрил для ВЭЖХ особой чистоты Ultra Gradient',
+        casNumber: '75-05-8',
+        brand: 'Macklin',
+        packaging: '4.0L',
+        quantity: 3,
+        priceKzt: 42000,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 126000,
+    vatKzt: 0,
+    totalKzt: 129500,
+    deliveryCostKzt: 3500,
+    deliveryDays: '1 рабочий день (г. Алматы)',
+    deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
+    vatMode: 'none',
+    isManagerConfirmed: true,
+    managerComment: 'Отгружено со склада Алматы по расходной накладной № ЭСФ-0941. Паспорт CoA выдан на руки курьеру.',
+    createdById: 'usr-client-1',
+    organizationBin: '080140012345',
+  },
+  {
+    id: 'ord-demo-1840',
+    orderNumber: 'CX-2026-1840',
+    type: 'invoice',
+    status: 'paid',
+    createdAt: new Date(Date.now() - 86400000 * 24).toISOString(), // Previous month (September)
+    paidAt: new Date(Date.now() - 86400000 * 22).toISOString(),
+    client: {
+      bin: '190440098765',
+      companyName: 'ТОО "КазБиоФарм"',
+      kbe: '17',
+      iik: 'KZ927050001009876543',
+      bik: 'CASPKZKA',
+      bankName: 'АО "Kaspi Bank"',
+      contactName: 'Сауле Ибраева',
+      contactPhone: '+7 (775) 432-11-22',
+      contactEmail: 'procure@kazbiopharm.kz',
+      deliveryAddress: 'г. Караганда, ул. Ермекова, 45',
+    },
+    items: [
+      {
+        productId: 201,
+        sku: 'SW-F2440-500',
+        name: 'Колба круглодонная со шлифом 24/40, 500 мл (Боросиликатное стекло 3.3)',
+        casNumber: 'BORO-3.3-GLASS',
+        brand: 'Synthware',
+        packaging: '500 ml',
+        quantity: 12,
+        priceKzt: 14500,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 174000,
+    vatKzt: 0,
+    totalKzt: 179000,
+    deliveryCostKzt: 5000,
+    deliveryDays: '3-5 рабочих дней (по РК)',
+    deliveryAddress: 'г. Караганда, ул. Ермекова, 45',
+    vatMode: 'none',
+    isManagerConfirmed: true,
+    managerComment: 'Оплата получена. Товар скомплектован и доставлен в Караганду.',
+    createdById: 'usr-client-4',
+    organizationBin: '190440098765',
+  },
+  {
+    id: 'ord-demo-1102',
+    orderNumber: 'CX-2026-1102',
+    type: 'invoice',
+    status: 'shipped',
+    createdAt: new Date(Date.now() - 86400000 * 55).toISOString(), // August
+    paidAt: new Date(Date.now() - 86400000 * 52).toISOString(),
+    shippedAt: new Date(Date.now() - 86400000 * 50).toISOString(),
+    client: {
+      bin: '080140012345',
+      companyName: 'ТОО "КазХимСинтез"',
+      kbe: '17',
+      iik: 'KZ456010002003456789',
+      bik: 'HSBKKZKX',
+      bankName: 'АО "Народный Банк Казахстана"',
+      contactName: 'Алексей Бережной',
+      contactPhone: '+7 (701) 450-89-22',
+      contactEmail: 'procurement@kazchimsynthez.kz',
+      deliveryAddress: 'г. Алматы, мкр. Алатау, ул. Ибрагимова, 1',
+    },
+    items: [
+      {
+        productId: 1,
+        sku: 'TCI-E0297-25G',
+        name: '1-этинил-1-циклогексанол',
+        casNumber: '78-27-3',
+        brand: 'TCI',
+        packaging: '25g',
+        quantity: 5,
+        priceKzt: 19800,
+        vatRate: 0,
+        warehouseId: 'wh-almaty-central',
+      },
+    ],
+    subtotalKzt: 99000,
+    vatKzt: 0,
+    totalKzt: 99000,
+    deliveryCostKzt: 0,
+    deliveryDays: 'Самовывоз со склада ChemExpress',
+    deliveryAddress: 'Самовывоз со склада Алматы',
+    vatMode: 'none',
+    isManagerConfirmed: true,
+    managerComment: 'Отгрузка по накладной закрыта. Самовывоз представителем.',
+    createdById: 'usr-client-1',
+    organizationBin: '080140012345',
+  },
 ];
 
 const loadSavedOrders = (): Order[] => {
@@ -391,7 +673,17 @@ const loadSavedOrders = (): Order[] => {
     const raw = localStorage.getItem('chemexpress_b2b_orders');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Merge missing demo orders so all funnels (invoice, quote, request) are populated
+        const existingIds = new Set(parsed.map((p: any) => p.id));
+        const missingDemo = DEMO_ORDERS.filter(d => !existingIds.has(d.id));
+        if (missingDemo.length > 0) {
+          const merged = [...parsed, ...missingDemo];
+          saveOrdersToStorage(merged);
+          return merged;
+        }
+        return parsed;
+      }
     }
   } catch (e) {
     // ignore
@@ -988,6 +1280,73 @@ export const useStore = create<AppState>((set, get) => ({
       title: 'Заказ утверждён менеджером',
       message: `${orderNum ? `№ ${orderNum} • ` : ''}Условия поставки зафиксированы`,
       duration: 4000,
+    });
+  },
+
+  convertQuoteToInvoice: (orderId) => {
+    let orderNum = '';
+    set(state => {
+      const updatedOrders = state.orders.map(o => {
+        if (o.id === orderId) {
+          orderNum = o.orderNumber;
+          return {
+            ...o,
+            type: 'invoice' as const,
+            status: 'invoice_issued' as const,
+          };
+        }
+        return o;
+      });
+      saveOrdersToStorage(updatedOrders);
+      const updatedPreview = state.previewOrder?.id === orderId
+        ? updatedOrders.find(o => o.id === orderId) || null
+        : state.previewOrder;
+      return { orders: updatedOrders, previewOrder: updatedPreview };
+    });
+
+    get().addToast({
+      type: 'success',
+      title: 'Счёт на оплату выставлен',
+      message: `КП ${orderNum} успешно переведено в официальный Счёт`,
+      duration: 5000,
+    });
+  },
+
+  convertRequestToQuote: (orderId) => {
+    let orderNum = '';
+    set(state => {
+      const updatedOrders = state.orders.map(o => {
+        if (o.id === orderId) {
+          orderNum = o.orderNumber;
+          return {
+            ...o,
+            type: 'quote' as const,
+            status: 'quote_sent' as const,
+          };
+        }
+        return o;
+      });
+      saveOrdersToStorage(updatedOrders);
+      const updatedPreview = state.previewOrder?.id === orderId
+        ? updatedOrders.find(o => o.id === orderId) || null
+        : state.previewOrder;
+      return { orders: updatedOrders, previewOrder: updatedPreview };
+    });
+
+    get().addToast({
+      type: 'success',
+      title: 'Коммерческое предложение сформировано',
+      message: `Запрос ${orderNum} успешно переведён в КП`,
+      duration: 5000,
+    });
+  },
+
+  cancelOrder: (orderId) => {
+    get().updateOrderStatus(orderId, 'cancelled');
+    get().addToast({
+      type: 'info',
+      title: 'Документ аннулирован',
+      duration: 3500,
     });
   },
 

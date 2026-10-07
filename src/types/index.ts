@@ -169,3 +169,6 @@ export interface StaffUser {
   role: StaffRole;
 }
 
+export type ManagerFunnelScenario = 'all' | 'invoice' | 'quote' | 'request';
+export type WorkstationViewMode = 'kanban' | 'table';
+
